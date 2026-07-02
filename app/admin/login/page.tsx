@@ -24,6 +24,10 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setSubmitting(true);
 
+    // Same defensive clear as the customer sign-in — avoids a leftover
+    // session's background refresh timer clobbering this fresh login.
+    await supabase.auth.signOut({ scope: 'local' });
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
