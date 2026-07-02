@@ -25,17 +25,17 @@ export default function AuthPage() {
   const [signUpPassword, setSignUpPassword] = useState('');
   const [signUpConfirm, setSignUpConfirm] = useState('');
   const [accountType, setAccountType] = useState<'retail' | 'wholesale'>('retail');
-  
+
   // Local submission state for form buttons
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Grab user and loading status from global Auth Context
   const { user, loading: authLoading } = useAuth();
 
-  // Handle redirect if user is already logged in
+  // Handle redirect securely using replace if user is already logged in
   useEffect(() => {
     if (!authLoading && user) {
-      router.push('/account');
+      router.replace('/account');
     }
   }, [user, authLoading, router]);
 
@@ -54,7 +54,7 @@ export default function AuthPage() {
       toast.error(error.message === 'Invalid login credentials' ? 'Invalid email or password' : error.message);
     } else {
       toast.success('Welcome back!');
-      router.push('/account');
+      router.replace('/account');
     }
   };
 
@@ -94,7 +94,7 @@ export default function AuthPage() {
       } else {
         toast.success('Welcome to Fave Dazzling Jewels!');
       }
-      router.push('/account');
+      router.replace('/account');
     }
   };
 
