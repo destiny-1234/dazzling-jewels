@@ -54,7 +54,9 @@ export default function AuthPage() {
       toast.error(error.message === 'Invalid login credentials' ? 'Invalid email or password' : error.message);
     } else {
       toast.success('Welcome back!');
-      router.replace('/account');
+      // Don't navigate here — let the redirect effect above handle it once
+      // AuthProvider has actually confirmed the session. Navigating immediately
+      // races the async profile/roles fetch and can bounce back to /auth.
     }
   };
 
@@ -94,7 +96,9 @@ export default function AuthPage() {
       } else {
         toast.success('Welcome to Fave Dazzling Jewels!');
       }
-      router.replace('/account');
+      // Same as sign-in: let the redirect effect above navigate once
+      // AuthProvider confirms the session (only fires if a session was
+      // actually created — e.g. email confirmation is off).
     }
   };
 
