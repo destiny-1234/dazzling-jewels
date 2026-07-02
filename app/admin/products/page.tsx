@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Eye, EyeOff, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, EyeOff, X, ImagePlus, Loader2, Link as LinkIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { AdminShell } from '@/components/admin/admin-shell';
 import { formatNaira, slugify } from '@/lib/format';
@@ -176,10 +176,66 @@ function ProductForm({
   const [retailPrice, setRetailPrice] = useState(product?.retail_price?.toString() || '');
   const [wholesalePrice, setWholesalePrice] = useState(product?.wholesale_price?.toString() || '');
   const [stock, setStock] = useState(product?.stock?.toString() || '0');
-  const [images, setImages] = useState((product?.images || []).join('\n'));
+  const [images, setImages] = useState<string[]>(product?.images || []);
+  const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [visible, setVisible] = useState(product?.visible ?? true);
   const [featured, setFeatured] = useState(product?.featured ?? false);
   const [saving, setSaving] = useState(false);
+
+  const uploadFiles = async (files: FileList | File[]) => {
+    const fileArr = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    if (fileArr.length === 0) return;
+
+    setUploading(true);
+    const uploaded: string[] = [];
+
+    for (const file of fileArr) {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `${crypto.randomUUID()}.${ext}`;
+
+      const { error } = await supabase.storage
+        .from('product-images')
+        .upload(path, file, { cacheControl: '3600', upsert: false });
+
+      if (error) {
+        toast.error(`Failed to upload ${file.name}: ${error.message}`);
+        continue;
+      }
+
+      const { data } = supabase.storage.from('product-images').getPublicUrl(path);
+      uploaded.push(data.publicUrl);
+    }
+
+    setImages((prev) => [...prev, ...uploaded]);
+    setUploading(false);
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) uploadFiles(e.target.files);
+    e.target.value = '';
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragActive(false);
+    if (e.dataTransfer.files) uploadFiles(e.dataTransfer.files);
+  };
+
+  const addImageUrl = () => {
+    const trimmed = urlInput.trim();
+    if (!trimmed) return;
+    setImages((prev) => [...prev, trimmed]);
+    setUrlInput('');
+    setShowUrlInput(false);
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,7 +250,7 @@ function ProductForm({
       retail_price: parseFloat(retailPrice) || 0,
       wholesale_price: wholesalePrice ? parseFloat(wholesalePrice) : null,
       stock: parseInt(stock) || 0,
-      images: images.split('\n').map((s) => s.trim()).filter(Boolean),
+      images,
       visible,
       featured,
     };
@@ -263,8 +319,92 @@ function ProductForm({
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium text-zinc-300">Image URLs (one per line)</label>
-            <textarea value={images} onChange={(e) => setImages(e.target.value)} className="mt-1 min-h-[80px] w-full rounded-md border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500" placeholder="https://..." />
+            <label className="text-sm font-medium text-zinc-300">Product Images</label>
+
+            {/* Thumbnail grid */}
+            {images.length > 0 && (
+              <div className="mt-2 grid grid-cols-4 gap-3">
+                {images.map((url, i) => (
+                  <div key={`${url}-${i}`} className="group relative aspect-square overflow-hidden rounded-md border border-zinc-700 bg-zinc-800">
+                    <img src={url} alt="" className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(i)}
+                      className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-zinc-200 opacity-0 transition-opacity hover:bg-red-600 group-hover:opacity-100"
+                      title="Remove image"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Drop zone / upload from device */}
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              className={`mt-3 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed px-4 py-6 text-center transition-colors ${
+                dragActive ? 'border-amber-500 bg-amber-500/5' : 'border-zinc-700 hover:border-zinc-600'
+              }`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleFileInputChange}
+                className="hidden"
+              />
+              {uploading ? (
+                <>
+                  <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
+                  <p className="text-sm text-zinc-400">Uploading...</p>
+                </>
+              ) : (
+                <>
+                  <ImagePlus className="h-6 w-6 text-zinc-500" />
+                  <p className="text-sm text-zinc-400">
+                    <span className="text-amber-400">Click to upload</span> or drag and drop from your device
+                  </p>
+                  <p className="text-xs text-zinc-600">PNG, JPG, WEBP — multiple files supported</p>
+                </>
+              )}
+            </div>
+
+            {/* Fallback: paste a URL instead */}
+            <div className="mt-2">
+              {showUrlInput ? (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addImageUrl(); } }}
+                    placeholder="https://..."
+                    autoFocus
+                    className="flex-1 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:border-amber-500"
+                  />
+                  <button type="button" onClick={addImageUrl} className="rounded-md bg-zinc-700 px-3 py-1.5 text-sm text-zinc-100 hover:bg-zinc-600">
+                    Add
+                  </button>
+                  <button type="button" onClick={() => { setShowUrlInput(false); setUrlInput(''); }} className="rounded-md px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-800">
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowUrlInput(true)}
+                  className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300"
+                >
+                  <LinkIcon className="h-3.5 w-3.5" />
+                  Or paste an image URL instead
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex gap-6">
             <label className="flex items-center gap-2 text-sm text-zinc-300">
