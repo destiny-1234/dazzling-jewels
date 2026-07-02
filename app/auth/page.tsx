@@ -27,13 +27,14 @@ export default function AuthPage() {
 
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) router.push('/account');
-    };
-    checkSession();
-  }, [router]);
+  import { useAuth } from '@/lib/auth-context';
+
+// inside the component:
+const { user, loading } = useAuth();
+
+useEffect(() => {
+  if (!loading && user) router.push('/account');
+}, [user, loading, router]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
