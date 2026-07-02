@@ -42,7 +42,14 @@ export default function AuthPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
+    // Clear any leftover session first. If this browser tab still has an old
+    // session's auto-refresh timer running in the background (e.g. from an
+    // earlier admin login that was never explicitly signed out of), it can
+    // fire mid-flight and silently overwrite the session we're about to
+    // create here. Signing out locally first guarantees a clean slate.
+    await supabase.auth.signOut({ scope: 'local' });
+
     const { error } = await supabase.auth.signInWithPassword({
       email: signInEmail,
       password: signInPassword,
