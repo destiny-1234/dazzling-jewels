@@ -89,15 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 1. Initial Session Hydration Check
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('[auth-debug] initial getSession()', { hasSession: !!session, userId: session?.user?.id });
       handleAuthSession(session);
     });
 
     // 2. State Changed Listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[auth-debug] onAuthStateChange event:', event, { hasSession: !!session, userId: session?.user?.id });
       if (event === 'SIGNED_OUT') {
-        console.trace('[auth-debug] SIGNED_OUT received — stack trace to find trigger');
         setSession(null);
         setUser(null);
         setProfile(null);
