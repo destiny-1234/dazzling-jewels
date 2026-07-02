@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase/client';
 import { SiteShell } from '@/components/site/site-shell';
 import { Sparkles, Bookmark, TrendingUp } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
 
 export default function AuthPage() {
   const router = useRouter();
@@ -24,26 +25,31 @@ export default function AuthPage() {
   const [signUpPassword, setSignUpPassword] = useState('');
   const [signUpConfirm, setSignUpConfirm] = useState('');
   const [accountType, setAccountType] = useState<'retail' | 'wholesale'>('retail');
+  
+  // Local submission state for form buttons
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [loading, setLoading] = useState(false);
+  // Grab user and loading status from global Auth Context
+  const { user, loading: authLoading } = useAuth();
 
-  import { useAuth } from '@/lib/auth-context';
-
-// inside the component:
-const { user, loading } = useAuth();
-
-useEffect(() => {
-  if (!loading && user) router.push('/account');
-}, [user, loading, router]);
+  // Handle redirect if user is already logged in
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push('/account');
+    }
+  }, [user, authLoading, router]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setIsSubmitting(true);
+    
     const { error } = await supabase.auth.signInWithPassword({
       email: signInEmail,
       password: signInPassword,
     });
-    setLoading(false);
+    
+    setIsSubmitting(false);
+
     if (error) {
       toast.error(error.message === 'Invalid login credentials' ? 'Invalid email or password' : error.message);
     } else {
@@ -54,15 +60,19 @@ useEffect(() => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (signUpPassword !== signUpConfirm) {
       toast.error('Passwords do not match');
       return;
     }
+
     if (signUpPassword.length < 6) {
       toast.error('Password must be at least 6 characters');
       return;
     }
-    setLoading(true);
+
+    setIsSubmitting(true);
+
     const { data, error } = await supabase.auth.signUp({
       email: signUpEmail,
       password: signUpPassword,
@@ -73,7 +83,9 @@ useEffect(() => {
         },
       },
     });
-    setLoading(false);
+
+    setIsSubmitting(false);
+
     if (error) {
       toast.error(error.message);
     } else if (data.user) {
@@ -99,6 +111,7 @@ useEffect(() => {
             <p className="mt-6 max-w-md text-base leading-relaxed text-muted-foreground">
               Join our community of discerning collectors. Members enjoy exclusive access to new pieces, the ability to save favorites, track orders, and apply for wholesale pricing.
             </p>
+
             <div className="mt-8 space-y-4">
               {[
                 { icon: Bookmark, title: 'Save Favorites', desc: 'Build your personal wishlist of coveted pieces.' },
@@ -165,6 +178,7 @@ useEffect(() => {
                       placeholder="••••••••"
                     />
                   </div>
+
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-2 text-sm text-muted-foreground">
                       <input
@@ -179,8 +193,13 @@ useEffect(() => {
                       Forgot password?
                     </Link>
                   </div>
-                  <button type="submit" disabled={loading} className="btn-primary-luxe w-full disabled:opacity-50">
-                    {loading ? 'Signing in...' : 'Sign In'}
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="btn-primary-luxe w-full disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Signing in...' : 'Sign In'}
                   </button>
                 </form>
               ) : (
@@ -229,6 +248,7 @@ useEffect(() => {
                       placeholder="••••••••"
                     />
                   </div>
+
                   <div>
                     <label className="text-sm font-medium">Account Type</label>
                     <div className="mt-2 grid grid-cols-2 gap-3">
@@ -261,8 +281,13 @@ useEffect(() => {
                       </p>
                     )}
                   </div>
-                  <button type="submit" disabled={loading} className="btn-primary-luxe w-full disabled:opacity-50">
-                    {loading ? 'Creating account...' : 'Create Account'}
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="btn-primary-luxe w-full disabled:opacity-50"
+                  >
+                    {isSubmitting ? 'Creating account...' : 'Create Account'}
                   </button>
                 </form>
               )}
