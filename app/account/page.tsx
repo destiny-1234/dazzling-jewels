@@ -9,7 +9,7 @@ import { SiteShell } from '@/components/site/site-shell';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase/client';
 import { formatNaira, formatDate } from '@/lib/format';
-import type { Order, Product, WishlistItem } from '@/lib/types';
+import type { Order, WishlistItem } from '@/lib/types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 const statusColors: Record<string, string> = {
@@ -38,12 +38,14 @@ export default function AccountPage() {
   const [address, setAddress] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
+  // Redirect to auth if loading is complete and no user exists
   useEffect(() => {
     if (!loading && !user) {
       router.push('/auth');
     }
   }, [user, loading, router]);
 
+  // Sync profile details when profile context loads
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name || '');
@@ -52,41 +54,51 @@ export default function AccountPage() {
     }
   }, [profile]);
 
+  // Fetch Orders - Only enabled when user.id truly exists
   const { data: orders } = useQuery<Order[]>({
     queryKey: ['orders', user?.id],
     queryFn: async () => {
+      if (!user?.id) return [];
       const { data, error } = await supabase
         .from('orders')
         .select('*, order_items(*)')
-        .eq('user_id', user!.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
+
       if (error) throw error;
       return data as Order[];
     },
-    enabled: !!user,
+    enabled: !!user?.id,
   });
 
+  // Fetch Wishlist - Only enabled when user.id truly exists
   const { data: wishlist } = useQuery<WishlistItem[]>({
     queryKey: ['wishlist', user?.id],
     queryFn: async () => {
+      if (!user?.id) return [];
       const { data, error } = await supabase
         .from('wishlist')
         .select('*, products(*)')
-        .eq('user_id', user!.id);
+        .eq('user_id', user.id);
+
       if (error) throw error;
       return data as WishlistItem[];
     },
-    enabled: !!user,
+    enabled: !!user?.id,
   });
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user?.id) return;
+    
     setSavingProfile(true);
     const { error } = await supabase
       .from('profiles')
       .update({ full_name: fullName, phone, address })
-      .eq('id', user!.id);
+      .eq('id', user.id);
+      
     setSavingProfile(false);
+
     if (error) {
       toast.error('Failed to update profile');
     } else {
@@ -96,10 +108,13 @@ export default function AccountPage() {
     }
   };
 
+  // Guard view while resolving session status
   if (loading || !user) {
     return (
       <SiteShell>
-        <div className="container-luxe py-24 text-center text-muted-foreground">Loading...</div>
+        <div className="container-luxe py-24 text-center text-muted-foreground">
+          Loading secure session...
+        </div>
       </SiteShell>
     );
   }
@@ -122,8 +137,7 @@ export default function AccountPage() {
             )}
           </div>
           <button onClick={() => signOut()} className="btn-secondary-luxe">
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign Out
+            <LogOut className="mr-2 h-4 w-4" /> Sign Out
           </button>
         </div>
 
