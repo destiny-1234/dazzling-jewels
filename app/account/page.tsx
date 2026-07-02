@@ -38,14 +38,14 @@ export default function AccountPage() {
   const [address, setAddress] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
-  // Redirect to auth if loading is complete and no user exists
+  // STRICT REDIRECT: Only kick out if loading has completely stopped AND user is null
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/auth');
+      router.replace('/auth'); // Using replace prevents dirtying history stacks
     }
   }, [user, loading, router]);
 
-  // Sync profile details when profile context loads
+  // Sync profile details safely when profile context attaches
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name || '');
@@ -54,7 +54,7 @@ export default function AccountPage() {
     }
   }, [profile]);
 
-  // Fetch Orders - Only enabled when user.id truly exists
+  // Fetch Orders - Only active if valid ID exists
   const { data: orders } = useQuery<Order[]>({
     queryKey: ['orders', user?.id],
     queryFn: async () => {
@@ -71,7 +71,7 @@ export default function AccountPage() {
     enabled: !!user?.id,
   });
 
-  // Fetch Wishlist - Only enabled when user.id truly exists
+  // Fetch Wishlist - Only active if valid ID exists
   const { data: wishlist } = useQuery<WishlistItem[]>({
     queryKey: ['wishlist', user?.id],
     queryFn: async () => {
@@ -108,12 +108,12 @@ export default function AccountPage() {
     }
   };
 
-  // Guard view while resolving session status
+  // Guard: If authentication status is still unresolved, display a clean state wrapper
   if (loading || !user) {
     return (
       <SiteShell>
-        <div className="container-luxe py-24 text-center text-muted-foreground">
-          Loading secure session...
+        <div className="container-luxe py-24 text-center text-muted-foreground animate-pulse">
+          Securing session access...
         </div>
       </SiteShell>
     );
