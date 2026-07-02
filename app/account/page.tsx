@@ -40,7 +40,9 @@ export default function AccountPage() {
 
   // STRICT REDIRECT: Only boot out if loading has completely finished and there's no active user session
   useEffect(() => {
+    console.log('[auth-debug] /account guard check', { loading, hasUser: !!user });
     if (!loading && !user) {
+      console.trace('[auth-debug] /account redirecting to /auth — loading is false and user is null');
       router.replace('/auth');
     }
   }, [user, loading, router]);
