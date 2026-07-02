@@ -1,0 +1,184 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@layer base {
+  :root {
+    /* Luxury palette */
+    --background: 40 32% 97%;          /* warm cream */
+    --foreground: 20 14% 10%;          /* near-black ink */
+    --card: 40 32% 98%;
+    --card-foreground: 20 14% 10%;
+    --popover: 40 32% 98%;
+    --popover-foreground: 20 14% 10%;
+    --primary: 348 58% 25%;           /* deep burgundy */
+    --primary-foreground: 40 32% 97%;
+    --secondary: 40 30% 92%;
+    --secondary-foreground: 20 14% 10%;
+    --muted: 40 30% 90%;
+    --muted-foreground: 20 10% 45%;
+    --accent: 38 55% 45%;             /* warm gold */
+    --accent-foreground: 20 14% 10%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 40 32% 97%;
+    --border: 40 25% 85%;
+    --input: 40 25% 85%;
+    --ring: 348 58% 25%;
+    --radius: 0.25rem;
+
+    /* Extended palette */
+    --gold: 38 55% 45%;
+    --gold-light: 40 60% 60%;
+    --gold-dark: 36 50% 35%;
+    --burgundy: 348 58% 25%;
+    --burgundy-light: 348 48% 35%;
+    --ink: 20 14% 8%;
+    --cream: 40 32% 97%;
+    --cream-dark: 40 28% 93%;
+
+    --chart-1: 348 58% 25%;
+    --chart-2: 38 55% 45%;
+    --chart-3: 20 14% 10%;
+    --chart-4: 40 60% 60%;
+    --chart-5: 348 48% 35%;
+  }
+
+  .dark {
+    --background: 20 14% 8%;
+    --foreground: 40 32% 95%;
+    --card: 20 14% 12%;
+    --card-foreground: 40 32% 95%;
+    --popover: 20 14% 12%;
+    --popover-foreground: 40 32% 95%;
+    --primary: 38 55% 50%;
+    --primary-foreground: 20 14% 8%;
+    --secondary: 20 14% 18%;
+    --secondary-foreground: 40 32% 95%;
+    --muted: 20 14% 18%;
+    --muted-foreground: 40 20% 65%;
+    --accent: 348 58% 40%;
+    --accent-foreground: 40 32% 95%;
+    --destructive: 0 62% 40%;
+    --destructive-foreground: 40 32% 95%;
+    --border: 20 14% 20%;
+    --input: 20 14% 20%;
+    --ring: 38 55% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Cormorant Garamond', serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  .container-luxe {
+    @apply mx-auto max-w-[1280px] px-5 sm:px-8 lg:px-12;
+  }
+
+  .gold-text {
+    background: linear-gradient(135deg, hsl(38 65% 50%), hsl(42 70% 58%), hsl(36 50% 38%));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  .shadow-luxe {
+    box-shadow: 0 4px 24px -4px rgba(20, 14, 10, 0.08), 0 2px 8px -2px rgba(20, 14, 10, 0.04);
+  }
+
+  .shadow-luxe-lg {
+    box-shadow: 0 12px 48px -8px rgba(20, 14, 10, 0.12), 0 4px 16px -4px rgba(20, 14, 10, 0.06);
+  }
+
+  .section-label {
+    @apply text-xs uppercase font-medium tracking-[0.25em] text-accent;
+  }
+
+  .gold-divider {
+    @apply mx-auto h-px w-16 bg-gradient-to-r from-transparent via-accent to-transparent;
+  }
+
+  .btn-luxe {
+    @apply inline-flex items-center justify-center font-medium transition-all duration-300 rounded-[4px];
+  }
+
+  .btn-primary-luxe {
+    @apply bg-primary text-primary-foreground px-6 py-3 text-sm tracking-wide hover:brightness-90 transition-all duration-300;
+  }
+
+  .btn-secondary-luxe {
+    @apply border border-primary text-primary px-6 py-3 text-sm tracking-wide hover:bg-primary hover:text-primary-foreground transition-all duration-300;
+  }
+
+  .input-luxe {
+    @apply w-full rounded-[4px] border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors;
+  }
+
+  .card-luxe {
+    @apply bg-card rounded-[4px] border border-border shadow-luxe overflow-hidden;
+  }
+}
+
+@layer utilities {
+  .animate-pulse-ring {
+    animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-ring {
+    0% {
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+    }
+    70% {
+      box-shadow: 0 0 0 12px rgba(34, 197, 94, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.6s ease-out forwards;
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.7s ease-out forwards;
+  }
+
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
