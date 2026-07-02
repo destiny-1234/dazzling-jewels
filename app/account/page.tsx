@@ -38,10 +38,10 @@ export default function AccountPage() {
   const [address, setAddress] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
-  // STRICT REDIRECT: Only kick out if loading has completely stopped AND user is null
+  // STRICT REDIRECT: Only boot out if loading has completely finished and there's no active user session
   useEffect(() => {
     if (!loading && !user) {
-      router.replace('/auth'); // Using replace prevents dirtying history stacks
+      router.replace('/auth');
     }
   }, [user, loading, router]);
 
@@ -108,7 +108,7 @@ export default function AccountPage() {
     }
   };
 
-  // Guard: If authentication status is still unresolved, display a clean state wrapper
+  // Guard: If authentication or initial profile parsing is running, freeze view cleanly
   if (loading || !user) {
     return (
       <SiteShell>
@@ -119,7 +119,8 @@ export default function AccountPage() {
     );
   }
 
-  const firstName = profile?.full_name?.split(' ')[0] || 'there';
+  // Safe evaluations that fallback seamlessly if profile is resolving out-of-sync
+  const firstName = profile?.full_name ? profile.full_name.split(' ')[0] : 'there';
   const isWholesalePending = profile?.account_type === 'wholesale' && profile?.account_status === 'pending';
 
   return (
@@ -131,7 +132,7 @@ export default function AccountPage() {
             <p className="section-label">My Account</p>
             <h1 className="mt-2 font-serif text-4xl font-medium">Welcome, {firstName}</h1>
             {profile?.account_type === 'wholesale' && (
-              <span className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-medium ${statusColors[profile.account_status === 'approved' ? 'approved' : 'pending_review']}`}>
+              <span className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-medium ${statusColors[profile.account_status === 'approved' ? 'approved' : 'pending_review'] || 'bg-gray-100 text-gray-800'}`}>
                 Wholesale &middot; {profile.account_status}
               </span>
             )}
