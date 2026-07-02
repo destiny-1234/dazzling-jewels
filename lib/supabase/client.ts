@@ -25,7 +25,6 @@ function getSupabaseClient(): SupabaseClient {
   }
 
   if (!window.__faveSupabaseClient) {
-    console.log('[auth-debug] creating NEW Supabase client instance');
     window.__faveSupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
@@ -34,8 +33,6 @@ function getSupabaseClient(): SupabaseClient {
         storageKey: 'fave-dazzling-jewels-auth',
       },
     });
-  } else {
-    console.log('[auth-debug] reusing existing Supabase client instance');
   }
 
   return window.__faveSupabaseClient;
