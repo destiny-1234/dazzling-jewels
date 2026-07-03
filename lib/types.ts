@@ -72,6 +72,11 @@ export interface Order {
   created_at: string;
   updated_at: string;
   order_items?: OrderItem[];
+  // Soft-delete flags: hiding an order from a list never changes revenue.
+  // Only excluded_from_revenue actually removes it from revenue totals.
+  hidden_from_orders?: boolean;
+  hidden_from_transactions?: boolean;
+  excluded_from_revenue?: boolean;
 }
 
 export interface OrderItem {
