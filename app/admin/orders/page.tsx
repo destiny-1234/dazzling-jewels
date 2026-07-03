@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Trash2, RotateCcw, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/lib/supabase/admin-client';
 import { AdminShell } from '@/components/admin/admin-shell';
 import { formatNaira, formatDate } from '@/lib/format';
@@ -12,15 +12,19 @@ import type { Order, OrderStatus, PaymentStatus } from '@/lib/types';
 export default function AdminOrdersPage() {
   const queryClient = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showHidden, setShowHidden] = useState(false);
 
   const { data: orders } = useQuery({
-    queryKey: ['admin-orders'],
+    queryKey: ['admin-orders', showHidden],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('orders')
         .select('*, order_items(*)')
-        .eq('hidden_from_orders', false)
         .order('created_at', { ascending: false });
+      if (!showHidden) {
+        query = query.eq('hidden_from_orders', false);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data as Order[];
     },
@@ -45,12 +49,22 @@ export default function AdminOrdersPage() {
   };
 
   const deleteOrder = async (id: string) => {
-    if (!confirm('Remove this order from your Orders list? It will still be counted in your Transactions and revenue — this only affects this list.')) return;
+    if (!confirm('Remove this order from your Orders list? It will still be counted in your Transactions and revenue — this only affects this list. You can find it again later with "Show hidden".')) return;
     const { error } = await supabase.from('orders').update({ hidden_from_orders: true }).eq('id', id);
     if (error) {
       toast.error('Failed to delete order');
     } else {
       toast.success('Order removed from list');
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+    }
+  };
+
+  const restoreOrder = async (id: string) => {
+    const { error } = await supabase.from('orders').update({ hidden_from_orders: false }).eq('id', id);
+    if (error) {
+      toast.error('Failed to restore order');
+    } else {
+      toast.success('Order restored to list');
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
     }
   };
@@ -63,7 +77,17 @@ export default function AdminOrdersPage() {
       <h1 className="font-serif text-3xl font-medium text-zinc-100">Orders</h1>
       <p className="mt-1 text-sm text-zinc-500">Manage customer orders</p>
 
-      <div className="mt-8 overflow-x-auto rounded-lg border border-zinc-800">
+      <div className="mt-6 flex justify-end">
+        <button
+          onClick={() => setShowHidden((v) => !v)}
+          className="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700"
+        >
+          {showHidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          {showHidden ? 'Hide removed orders' : 'Show removed orders'}
+        </button>
+      </div>
+
+      <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-800">
         <table className="w-full min-w-[640px]">
           <thead className="bg-zinc-900">
             <tr>
@@ -79,8 +103,13 @@ export default function AdminOrdersPage() {
           <tbody className="divide-y divide-zinc-800 bg-zinc-900/50">
             {orders?.map((order: Order) => (
               <>
-                <tr key={order.id} className="hover:bg-zinc-800/50 cursor-pointer" onClick={() => setExpandedId(expandedId === order.id ? null : order.id)}>
-                  <td className="px-4 py-3 font-mono text-sm text-zinc-300">#{order.id.slice(0, 8).toUpperCase()}</td>
+                <tr key={order.id} className={`hover:bg-zinc-800/50 cursor-pointer ${order.hidden_from_orders ? 'opacity-50' : ''}`} onClick={() => setExpandedId(expandedId === order.id ? null : order.id)}>
+                  <td className="px-4 py-3 font-mono text-sm text-zinc-300">
+                    #{order.id.slice(0, 8).toUpperCase()}
+                    {order.hidden_from_orders && (
+                      <span className="ml-2 rounded-full bg-zinc-700 px-2 py-0.5 text-[10px] uppercase tracking-wide text-zinc-300">Removed</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-sm text-zinc-300">{order.shipping_name || '-'}</td>
                   <td className="px-4 py-3 text-sm text-zinc-300">{formatNaira(order.total)}</td>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -107,9 +136,15 @@ export default function AdminOrdersPage() {
                       <button onClick={() => setExpandedId(expandedId === order.id ? null : order.id)} className="text-zinc-400 hover:text-zinc-100">
                         {expandedId === order.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </button>
-                      <button onClick={() => deleteOrder(order.id)} className="text-zinc-400 hover:text-red-400">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {order.hidden_from_orders ? (
+                        <button onClick={() => restoreOrder(order.id)} className="text-zinc-400 hover:text-green-400" title="Restore to this list">
+                          <RotateCcw className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <button onClick={() => deleteOrder(order.id)} className="text-zinc-400 hover:text-red-400" title="Remove from this list only">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
