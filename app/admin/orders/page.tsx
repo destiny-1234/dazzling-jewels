@@ -30,6 +30,14 @@ export default function AdminOrdersPage() {
     if (error) {
       toast.error('Failed to update order');
     } else {
+      // If an admin manually marks an order as paid (e.g. confirmed bank
+      // transfer), reduce stock the same way the automated checkout does.
+      if (field === 'payment_status' && value === 'paid') {
+        const { error: stockError } = await supabase.rpc('fulfill_order_stock', { p_order_id: id });
+        if (stockError) {
+          console.error('Failed to update stock for order', id, stockError);
+        }
+      }
       toast.success('Order updated');
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
     }
