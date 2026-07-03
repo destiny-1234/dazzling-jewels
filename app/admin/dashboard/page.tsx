@@ -20,12 +20,13 @@ export default function AdminDashboardPage() {
     queryKey: ['admin-stats'],
     queryFn: async () => {
       const [ordersRes, customersRes, monthOrdersRes] = await Promise.all([
-        supabase.from('orders').select('total, created_at, payment_status'),
+        supabase.from('orders').select('total, created_at, payment_status').eq('excluded_from_revenue', false),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('orders')
           .select('total, created_at')
           .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
-          .eq('payment_status', 'paid'),
+          .eq('payment_status', 'paid')
+          .eq('excluded_from_revenue', false),
       ]);
 
       const allOrders = ordersRes.data || [];
