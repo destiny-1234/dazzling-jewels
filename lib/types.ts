@@ -77,6 +77,7 @@ export interface Order {
   hidden_from_orders?: boolean;
   hidden_from_transactions?: boolean;
   excluded_from_revenue?: boolean;
+  hidden_from_customer?: boolean;
 }
 
 export interface OrderItem {
