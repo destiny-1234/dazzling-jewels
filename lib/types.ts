@@ -113,7 +113,18 @@ export interface ContactMessage {
   message: string;
   read: boolean;
   created_at: string;
+  user_id?: string | null;
+  message_replies?: MessageReply[];
 }
+
+export interface MessageReply {
+  id: string;
+  contact_message_id: string;
+  sender_type: 'admin' | 'customer';
+  body: string;
+  created_at: string;
+}
+
 
 export interface SiteSetting {
   id: string;
