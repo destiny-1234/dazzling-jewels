@@ -137,6 +137,8 @@ export default function CheckoutPage() {
             toast.success('Payment successful! Your order has been placed.');
             router.push(`/order-confirmation/${order.id}`);
           } else {
+            closePaymentModal();
+            setLoading(false);
             toast.error('Payment was not successful. Please try again.');
           }
         },
