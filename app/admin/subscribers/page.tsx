@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Download, Bell, Trash2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/admin-client';
 import { AdminShell } from '@/components/admin/admin-shell';
 import { formatDate } from '@/lib/format';
 import type { NewsletterSubscriber } from '@/lib/types';
