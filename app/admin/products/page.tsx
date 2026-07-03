@@ -52,7 +52,7 @@ export default function AdminProductsPage() {
     if (!confirm('Delete this product? This cannot be undone.')) return;
     const { error } = await supabase.from('products').delete().eq('id', id);
     if (error) {
-      toast.error('Failed to delete product');
+      toast.error(`Failed to delete product: ${error.message}`);
     } else {
       toast.success('Product deleted');
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
