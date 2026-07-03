@@ -77,8 +77,8 @@ export default function AdminProductsPage() {
       </div>
 
       {/* Product table */}
-      <div className="mt-8 overflow-hidden rounded-lg border border-zinc-800">
-        <table className="w-full">
+      <div className="mt-8 overflow-x-auto rounded-lg border border-zinc-800">
+        <table className="w-full min-w-[640px]">
           <thead className="bg-zinc-900">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">Product</th>
