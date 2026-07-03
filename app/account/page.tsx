@@ -63,6 +63,7 @@ export default function AccountPage() {
         .from('orders')
         .select('*, order_items(*)')
         .eq('user_id', user.id)
+        .eq('hidden_from_customer', false)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
