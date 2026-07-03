@@ -114,6 +114,14 @@ export default function CheckoutPage() {
               })
               .eq('id', order.id);
 
+            // Reduce stock for each purchased item now that payment is confirmed
+            const { error: stockError } = await supabase.rpc('fulfill_order_stock', {
+              p_order_id: order.id,
+            });
+            if (stockError) {
+              console.error('Failed to update stock for order', order.id, stockError);
+            }
+
             // Clear cart
             await clearCart();
 
