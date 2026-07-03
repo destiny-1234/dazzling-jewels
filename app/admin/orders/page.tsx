@@ -19,6 +19,7 @@ export default function AdminOrdersPage() {
       const { data, error } = await supabase
         .from('orders')
         .select('*, order_items(*)')
+        .eq('hidden_from_orders', false)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data as Order[];
@@ -44,12 +45,12 @@ export default function AdminOrdersPage() {
   };
 
   const deleteOrder = async (id: string) => {
-    if (!confirm('Delete this order? This cannot be undone.')) return;
-    const { error } = await supabase.from('orders').delete().eq('id', id);
+    if (!confirm('Remove this order from your Orders list? It will still be counted in your Transactions and revenue — this only affects this list.')) return;
+    const { error } = await supabase.from('orders').update({ hidden_from_orders: true }).eq('id', id);
     if (error) {
       toast.error('Failed to delete order');
     } else {
-      toast.success('Order deleted');
+      toast.success('Order removed from list');
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
     }
   };
