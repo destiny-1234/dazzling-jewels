@@ -13,6 +13,7 @@ export default function AdminSubscribersPage() {
   const queryClient = useQueryClient();
   const [subject, setSubject] = useState('');
   const [messageBody, setMessageBody] = useState('');
+  const [sending, setSending] = useState(false);
 
   const { data: subscribers } = useQuery({
     queryKey: ['admin-subscribers'],
@@ -51,12 +52,44 @@ export default function AdminSubscribersPage() {
     }
   };
 
-  const handleSendNewsletter = (e: React.FormEvent) => {
+  const handleSendNewsletter = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In production, integrate with an email service
-    toast.success(`Newsletter queued to ${subscribers?.length || 0} subscribers (email service integration required)`);
-    setSubject('');
-    setMessageBody('');
+    setSending(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        toast.error('Your admin session expired — please log in again.');
+        setSending(false);
+        return;
+      }
+
+      const res = await fetch('/api/send-newsletter', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ subject, message: messageBody }),
+      });
+      const result = await res.json();
+
+      if (!res.ok) {
+        toast.error(result.error || 'Failed to send newsletter');
+      } else {
+        if (result.failed > 0) {
+          toast.success(`Sent to ${result.sent} of ${result.total} subscribers (${result.failed} failed).`);
+        } else {
+          toast.success(`Newsletter sent to ${result.sent} subscriber${result.sent === 1 ? '' : 's'}.`);
+        }
+        setSubject('');
+        setMessageBody('');
+      }
+    } catch (err) {
+      toast.error('Failed to send newsletter');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -137,8 +170,8 @@ export default function AdminSubscribersPage() {
                 placeholder="Write your newsletter content..."
               />
             </div>
-            <button type="submit" className="w-full rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-amber-400">
-              Send to {subscribers?.length || 0} Subscribers
+            <button type="submit" disabled={sending} className="w-full rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-amber-400 disabled:opacity-50">
+              {sending ? 'Sending...' : `Send to ${subscribers?.length || 0} Subscribers`}
             </button>
           </form>
         </div>
