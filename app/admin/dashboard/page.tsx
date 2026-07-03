@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, ShoppingBag, Users, Wallet, TriangleAlert as AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase/admin-client';
@@ -69,10 +70,10 @@ export default function AdminDashboardPage() {
   });
 
   const statCards = [
-    { label: 'Total Revenue', value: stats ? formatNaira(stats.totalRevenue) : '...', icon: Wallet, color: 'text-amber-400' },
-    { label: "This Month's Revenue", value: stats ? formatNaira(stats.monthRevenue) : '...', icon: TrendingUp, color: 'text-green-400' },
-    { label: 'Total Orders', value: stats?.totalOrders ?? '...', icon: ShoppingBag, color: 'text-blue-400' },
-    { label: 'Total Customers', value: stats?.totalCustomers ?? '...', icon: Users, color: 'text-purple-400' },
+    { label: 'Total Revenue', value: stats ? formatNaira(stats.totalRevenue) : '...', icon: Wallet, color: 'text-amber-400', href: '/admin/transactions' },
+    { label: "This Month's Revenue", value: stats ? formatNaira(stats.monthRevenue) : '...', icon: TrendingUp, color: 'text-green-400', href: '/admin/transactions' },
+    { label: 'Total Orders', value: stats?.totalOrders ?? '...', icon: ShoppingBag, color: 'text-blue-400', href: '/admin/orders' },
+    { label: 'Total Customers', value: stats?.totalCustomers ?? '...', icon: Users, color: 'text-purple-400', href: '/admin/users' },
   ];
 
   return (
@@ -83,13 +84,17 @@ export default function AdminDashboardPage() {
       {/* Stat cards */}
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((card) => (
-          <div key={card.label} className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+          <Link
+            key={card.label}
+            href={card.href}
+            className="rounded-lg border border-zinc-800 bg-zinc-900 p-6 transition-colors hover:border-zinc-600 hover:bg-zinc-800/70"
+          >
             <div className="flex items-center justify-between">
               <p className="text-sm text-zinc-400">{card.label}</p>
               <card.icon className={`h-5 w-5 ${card.color}`} />
             </div>
             <p className="mt-3 font-serif text-2xl font-medium text-zinc-100">{card.value}</p>
-          </div>
+          </Link>
         ))}
       </div>
 
