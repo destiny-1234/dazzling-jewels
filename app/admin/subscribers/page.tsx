@@ -77,8 +77,8 @@ export default function AdminSubscribersPage() {
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_400px]">
         {/* Subscriber list */}
-        <div className="overflow-hidden rounded-lg border border-zinc-800">
-          <table className="w-full">
+        <div className="overflow-x-auto rounded-lg border border-zinc-800">
+          <table className="w-full min-w-[640px]">
             <thead className="bg-zinc-900">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">Email</th>
