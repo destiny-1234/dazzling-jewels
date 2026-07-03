@@ -12,6 +12,8 @@ interface AuthContextValue {
   roles: UserRole[];
   isAdmin: boolean;
   isWholesale: boolean;
+  isWholesalePending: boolean;
+  canShop: boolean;
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -24,6 +26,8 @@ const AuthContext = createContext<AuthContextValue>({
   roles: [],
   isAdmin: false,
   isWholesale: false,
+  isWholesalePending: false,
+  canShop: false,
   loading: true,
   signOut: async () => {},
   refreshProfile: async () => {},
@@ -132,6 +136,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         roles,
         isAdmin: roles.includes('admin'),
         isWholesale: profile?.account_type === 'wholesale' && profile?.account_status === 'approved',
+        // A wholesale signup that hasn't been approved (still pending, or rejected) yet
+        isWholesalePending: profile?.account_type === 'wholesale' && profile?.account_status !== 'approved',
+        // Whether this account is allowed to browse products / add to cart / checkout at all.
+        // Retail accounts can always shop once signed in; wholesale accounts must be approved first.
+        canShop: !!user && !(profile?.account_type === 'wholesale' && profile?.account_status !== 'approved'),
         // Expose a combined state so route gates never run prematurely
         loading: !isInitialized || loading,
         signOut,
