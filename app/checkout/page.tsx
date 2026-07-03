@@ -13,7 +13,7 @@ import { formatNaira } from '@/lib/format';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { user, profile } = useAuth();
+  const { user, profile, canShop, isWholesalePending } = useAuth();
   const { lines, subtotal, clearCart } = useCart();
 
   const [name, setName] = useState('');
@@ -28,13 +28,18 @@ export default function CheckoutPage() {
       router.push('/auth');
       return;
     }
+    if (isWholesalePending) {
+      toast.error('Your wholesale account is pending admin approval. You cannot place orders until it is approved.');
+      router.push('/account');
+      return;
+    }
     if (profile) {
       setName(profile.full_name || '');
       setEmail(profile.email || '');
       setPhone(profile.phone || '');
       setAddress(profile.address || '');
     }
-  }, [user, profile, router]);
+  }, [user, profile, isWholesalePending, router]);
 
   const flutterwaveConfig = {
     public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || 'FLWPUBK_TEST-XXXXXXXXXXXXXXXXXXXXXXXXXX',
@@ -59,6 +64,10 @@ export default function CheckoutPage() {
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    if (isWholesalePending) {
+      toast.error('Your wholesale account is pending admin approval. You cannot place orders until it is approved.');
+      return;
+    }
     if (lines.length === 0) {
       toast.error('Your cart is empty');
       return;
@@ -141,11 +150,11 @@ export default function CheckoutPage() {
     }
   };
 
-  if (!user) {
+  if (!user || isWholesalePending) {
     return (
       <SiteShell>
         <div className="container-luxe py-24 text-center">
-          <p className="text-muted-foreground">Redirecting to sign in...</p>
+          <p className="text-muted-foreground">Redirecting...</p>
         </div>
       </SiteShell>
     );
