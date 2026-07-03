@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Truck, ShieldCheck, Heart, MessageCircle, Minus, Plus } from 'lucide-react';
 import { SiteShell } from '@/components/site/site-shell';
 import { SignInGate } from '@/components/site/sign-in-gate';
+import { WholesalePendingGate } from '@/components/site/wholesale-pending-gate';
 import { useProductBySlug } from '@/lib/hooks/use-products';
 import { useAuth } from '@/lib/auth-context';
 import { useCart } from '@/lib/cart-context';
@@ -17,7 +18,7 @@ import { supabase } from '@/lib/supabase/client';
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
-  const { user, isWholesale } = useAuth();
+  const { user, isWholesale, canShop, isWholesalePending } = useAuth();
   const { addToCart } = useCart();
   const { data: settings } = useSiteSettings();
   const { data: product, isLoading } = useProductBySlug(slug as string);
@@ -68,6 +69,16 @@ export default function ProductDetailPage() {
             title="Sign in to view this piece"
             description="This piece is available exclusively to members. Sign in or create an account to view full details, pricing, and place an order."
           />
+        </div>
+      </SiteShell>
+    );
+  }
+
+  if (isWholesalePending) {
+    return (
+      <SiteShell>
+        <div className="container-luxe py-12">
+          <WholesalePendingGate />
         </div>
       </SiteShell>
     );
