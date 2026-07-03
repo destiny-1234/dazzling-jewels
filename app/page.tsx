@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { Star, Truck, Sparkles, Heart, Package, Users } from 'lucide-react';
 import { SiteShell } from '@/components/site/site-shell';
 import { SignInGate } from '@/components/site/sign-in-gate';
+import { WholesalePendingGate } from '@/components/site/wholesale-pending-gate';
 import { useFeaturedProducts, useTestimonials } from '@/lib/hooks/use-products';
 import type { Product, Testimonial } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
@@ -13,7 +14,7 @@ import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 
 export default function HomePage() {
-  const { user } = useAuth();
+  const { user, canShop, isWholesalePending } = useAuth();
   const { data: featuredProducts } = useFeaturedProducts();
   const { data: testimonials } = useTestimonials();
   const [activeTestimonial, setActiveTestimonial] = useState(0);
@@ -120,7 +121,7 @@ export default function HomePage() {
           <div className="gold-divider mt-6" />
 
           <div className="mt-12">
-            {user ? (
+            {canShop ? (
               <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
                 {featuredProducts?.map((product: Product) => (
                   <Link key={product.id} href={`/products/${product.slug}`} className="group">
@@ -142,6 +143,8 @@ export default function HomePage() {
                   </Link>
                 ))}
               </div>
+            ) : isWholesalePending ? (
+              <WholesalePendingGate />
             ) : (
               <SignInGate />
             )}
