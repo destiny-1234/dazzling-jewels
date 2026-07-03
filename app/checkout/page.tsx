@@ -114,21 +114,37 @@ export default function CheckoutPage() {
           closePaymentModal();
 
           if (response.status === 'successful') {
-            // Update order with payment reference and paid status
-            await supabase
-              .from('orders')
-              .update({
-                payment_status: 'paid',
-                payment_reference: response.transaction_id,
-              })
-              .eq('id', order.id);
+            // Don't trust the browser's word for it — ask our server to
+            // verify this transaction with Flutterwave directly before
+            // marking the order paid or touching stock.
+            try {
+              const { data: sessionData } = await supabase.auth.getSession();
+              const token = sessionData.session?.access_token;
 
-            // Reduce stock for each purchased item now that payment is confirmed
-            const { error: stockError } = await supabase.rpc('fulfill_order_stock', {
-              p_order_id: order.id,
-            });
-            if (stockError) {
-              console.error('Failed to update stock for order', order.id, stockError);
+              const verifyRes = await fetch('/api/verify-payment', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                  order_id: order.id,
+                  transaction_id: response.transaction_id,
+                }),
+              });
+              const verifyResult = await verifyRes.json();
+
+              if (!verifyRes.ok || !verifyResult.verified) {
+                setLoading(false);
+                toast.error(
+                  'We could not confirm your payment with Flutterwave. If you were charged, contact us with your order reference and we will sort it out.'
+                );
+                return;
+              }
+            } catch {
+              setLoading(false);
+              toast.error('We could not confirm your payment. Please contact us if you were charged.');
+              return;
             }
 
             // Clear cart
