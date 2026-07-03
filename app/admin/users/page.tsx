@@ -55,8 +55,8 @@ export default function AdminUsersPage() {
       <h1 className="font-serif text-3xl font-medium text-zinc-100">Users</h1>
       <p className="mt-1 text-sm text-zinc-500">Manage customer accounts</p>
 
-      <div className="mt-8 overflow-hidden rounded-lg border border-zinc-800">
-        <table className="w-full">
+      <div className="mt-8 overflow-x-auto rounded-lg border border-zinc-800">
+        <table className="w-full min-w-[640px]">
           <thead className="bg-zinc-900">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-400">Name</th>
