@@ -1,28 +1,45 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Mail, Phone, MapPin, Clock, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { SiteShell } from '@/components/site/site-shell';
 import { useSiteSettings } from '@/lib/hooks/use-site-settings';
+import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase/client';
 
 export default function ContactPage() {
   const { data: settings } = useSiteSettings();
+  const { user, profile } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Prefill from the signed-in profile so logged-in customers don't have to
+  // retype their details, and so their thread shows up under My Account.
+  useEffect(() => {
+    if (profile) {
+      setName((prev) => prev || profile.full_name || '');
+      setEmail((prev) => prev || profile.email || '');
+    }
+  }, [profile]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.from('contact_messages').insert({ name, email, message });
+    const { error } = await supabase
+      .from('contact_messages')
+      .insert({ name, email, message, user_id: user?.id ?? null });
     setLoading(false);
     if (error) {
       toast.error('Something went wrong. Please try again.');
     } else {
-      toast.success('Message sent! We will be in touch soon.');
+      toast.success(
+        user
+          ? 'Message sent! You can follow the reply from My Account → Messages.'
+          : 'Message sent! We will be in touch soon.'
+      );
       setName('');
       setEmail('');
       setMessage('');
@@ -44,7 +61,7 @@ export default function ContactPage() {
       <div className="container-luxe py-16 md:py-24">
         <div className="text-center">
           <p className="section-label">Say Hello</p>
-          <h1 className="mt-2 font-serif text-4xl font-medium md:text-5xl">Let's talk beautiful bags.</h1>
+          <h1 className="mt-2 font-serif text-4xl font-medium md:text-5xl">Let&apos;s talk beautiful bags.</h1>
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">
             Questions about a piece, custom orders, or wholesale? We would love to hear from you.
           </p>
