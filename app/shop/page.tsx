@@ -15,14 +15,17 @@ export default function ShopPage() {
   const { data: categories } = useCategories();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
-  const [maxPrice, setMaxPrice] = useState(200000);
+  const PRICE_CEILING = 10000000; // ₦10,000,000 — comfortably above any realistic piece price
+  const [maxPrice, setMaxPrice] = useState(PRICE_CEILING);
   const [inStockOnly, setInStockOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
   const { data: products, isLoading } = useProducts({
     category: category === 'all' ? undefined : category,
     search: search || undefined,
-    maxPrice,
+    // Only send a price cap once the user has actually pulled the slider
+    // down from its max — otherwise every product should show by default.
+    maxPrice: maxPrice < PRICE_CEILING ? maxPrice : undefined,
     inStockOnly,
   });
 
@@ -102,13 +105,15 @@ export default function ShopPage() {
                   <input
                     type="range"
                     min={10000}
-                    max={200000}
-                    step={5000}
+                    max={PRICE_CEILING}
+                    step={10000}
                     value={maxPrice}
                     onChange={(e) => setMaxPrice(Number(e.target.value))}
                     className="mt-3 w-full accent-primary"
                   />
-                  <p className="mt-1 text-sm font-medium">{formatNaira(maxPrice)}</p>
+                  <p className="mt-1 text-sm font-medium">
+                    {maxPrice >= PRICE_CEILING ? 'Any price' : formatNaira(maxPrice)}
+                  </p>
                 </div>
 
                 {/* In Stock */}
