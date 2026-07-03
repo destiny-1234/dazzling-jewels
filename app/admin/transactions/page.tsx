@@ -73,10 +73,10 @@ export default function AdminTransactionsPage() {
   };
 
   const removeFromRevenue = async (id: string, amount: number) => {
-    if (!confirm(`Permanently remove ${formatNaira(amount)} from your total revenue? This cannot be undone, and will also remove it from this list.`)) return;
+    if (!confirm(`Permanently remove ${formatNaira(amount)} from your total revenue? This cannot be undone, will also remove it from this list, and it will no longer show in the customer's own order history.`)) return;
     const { error } = await supabase
       .from('orders')
-      .update({ excluded_from_revenue: true, hidden_from_transactions: true })
+      .update({ excluded_from_revenue: true, hidden_from_transactions: true, hidden_from_customer: true })
       .eq('id', id);
     if (error) {
       toast.error('Failed to update revenue');
