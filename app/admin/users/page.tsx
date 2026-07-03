@@ -34,10 +34,26 @@ export default function AdminUsersPage() {
   };
 
   const deleteUser = async (id: string) => {
-    if (!confirm('Delete this user profile?')) return;
-    const { error } = await supabase.from('profiles').delete().eq('id', id);
-    if (error) {
-      toast.error('Failed to delete user');
+    if (!confirm('Delete this user? This permanently removes their login and profile — they will no longer be able to sign in.')) return;
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      toast.error('Your admin session has expired. Please sign in again.');
+      return;
+    }
+
+    const { data, error } = await supabase.functions.invoke('delete-user', {
+      body: { userId: id },
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || 'Failed to delete user');
     } else {
       toast.success('User deleted');
       queryClient.invalidateQueries({ queryKey: ['admin-profiles'] });
