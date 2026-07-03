@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronDown, ChevronUp, Trash2, RotateCcw, Eye, EyeOff } from 'lucide-react';
+import { ChevronDown, ChevronUp, Trash2, RotateCcw, Eye, EyeOff, MinusCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase/admin-client';
 import { AdminShell } from '@/components/admin/admin-shell';
 import { formatNaira, formatDate } from '@/lib/format';
@@ -66,6 +66,31 @@ export default function AdminOrdersPage() {
     } else {
       toast.success('Order restored to list');
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+    }
+  };
+
+  // Full wipe: for a genuinely fake/mistake/test order (paid or not).
+  // Hides it everywhere, including the customer's own order history, and
+  // if it was paid, also removes it from revenue.
+  const permanentlyDeleteOrder = async (id: string) => {
+    if (!confirm('Permanently delete this order? This is for test/mistake orders only — it will disappear from all admin lists, from the customer\'s order history, and from revenue if it was paid. This cannot be undone.')) return;
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        hidden_from_orders: true,
+        hidden_from_transactions: true,
+        excluded_from_revenue: true,
+        hidden_from_customer: true,
+      })
+      .eq('id', id);
+    if (error) {
+      toast.error('Failed to permanently delete order');
+    } else {
+      toast.success('Order permanently deleted');
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-transactions-revenue'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
     }
   };
 
@@ -145,6 +170,9 @@ export default function AdminOrdersPage() {
                           <Trash2 className="h-4 w-4" />
                         </button>
                       )}
+                      <button onClick={() => permanentlyDeleteOrder(order.id)} className="text-zinc-400 hover:text-red-500" title="Permanently delete (test/mistake orders only)">
+                        <MinusCircle className="h-4 w-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
