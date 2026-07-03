@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import { SiteShell } from '@/components/site/site-shell';
 import { SignInGate } from '@/components/site/sign-in-gate';
+import { WholesalePendingGate } from '@/components/site/wholesale-pending-gate';
 import { useProducts, useCategories } from '@/lib/hooks/use-products';
 import type { Product, Category } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
 import { formatNaira } from '@/lib/format';
 
 export default function ShopPage() {
-  const { user } = useAuth();
+  const { user, canShop, isWholesalePending } = useAuth();
   const { data: categories } = useCategories();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
@@ -44,7 +45,7 @@ export default function ShopPage() {
       </section>
 
       <section className="container-luxe py-12">
-        {user ? (
+        {canShop ? (
           <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
             {/* Sidebar Filters */}
             <aside className={`${showFilters ? 'block' : 'hidden'} lg:block`}>
@@ -187,6 +188,8 @@ export default function ShopPage() {
               )}
             </div>
           </div>
+        ) : isWholesalePending ? (
+          <WholesalePendingGate />
         ) : (
           <SignInGate
             title="Sign in to view the collection"
