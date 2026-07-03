@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Eye, EyeOff, X, ImagePlus, Loader2, Link as LinkIcon } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/admin-client';
 import { AdminShell } from '@/components/admin/admin-shell';
 import { formatNaira, slugify } from '@/lib/format';
 import type { Product, Category } from '@/lib/types';
