@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/admin-client';
 import { AdminShell } from '@/components/admin/admin-shell';
 import { formatNaira, formatDate } from '@/lib/format';
 import type { Order } from '@/lib/types';
