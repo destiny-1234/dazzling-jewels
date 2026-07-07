@@ -5,11 +5,17 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { useFlutterwave, closePaymentModal } from 'flutterwave-react-v3';
+import { useQuery } from '@tanstack/react-query';
+import { Check, ChevronsUpDown } from 'lucide-react';
 import { SiteShell } from '@/components/site/site-shell';
 import { useCart } from '@/lib/cart-context';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase/client';
 import { formatNaira } from '@/lib/format';
+import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import type { DeliveryZone } from '@/lib/types';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -22,6 +28,27 @@ export default function CheckoutPage() {
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [zoneOpen, setZoneOpen] = useState(false);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+
+  const { data: zones } = useQuery<DeliveryZone[]>({
+    queryKey: ['delivery-zones'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('delivery_zones')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+      if (error) throw error;
+      return data as DeliveryZone[];
+    },
+  });
+
+  const selectedZone = zones?.find((z: DeliveryZone) => z.id === selectedZoneId) || null;
+  const needsQuote = !!selectedZone && selectedZone.fee === null;
+  const deliveryFee = selectedZone && !needsQuote ? Number(selectedZone.fee) : 0;
+  const total = subtotal + deliveryFee;
 
   useEffect(() => {
     if (!user) {
@@ -44,7 +71,7 @@ export default function CheckoutPage() {
   const flutterwaveConfig = {
     public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || 'FLWPUBK_TEST-XXXXXXXXXXXXXXXXXXXXXXXXXX',
     tx_ref: `fave-${Date.now()}`,
-    amount: subtotal,
+    amount: total,
     currency: 'NGN',
     payment_options: 'card, banktransfer, ussd',
     customer: {
@@ -72,6 +99,10 @@ export default function CheckoutPage() {
       toast.error('Your cart is empty');
       return;
     }
+    if (!selectedZone) {
+      toast.error('Please select your delivery zone');
+      return;
+    }
 
     setLoading(true);
 
@@ -81,7 +112,8 @@ export default function CheckoutPage() {
         .from('orders')
         .insert({
           user_id: user.id,
-          total: subtotal,
+          subtotal,
+          total: needsQuote ? subtotal : total,
           status: 'pending',
           payment_status: 'unpaid',
           shipping_name: name,
@@ -89,6 +121,9 @@ export default function CheckoutPage() {
           shipping_phone: phone,
           shipping_address: address,
           notes,
+          delivery_zone_id: selectedZone.id,
+          delivery_fee: needsQuote ? 0 : deliveryFee,
+          delivery_status: needsQuote ? 'awaiting_quote' : 'quoted',
         })
         .select()
         .single();
@@ -107,6 +142,16 @@ export default function CheckoutPage() {
 
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
       if (itemsError) throw itemsError;
+
+      if (needsQuote) {
+        // Delivery fee isn't known yet — hold off on payment entirely.
+        // The admin will set a fee, then the customer pays from My Account.
+        await clearCart();
+        setLoading(false);
+        toast.success('Order received! We will confirm your delivery fee shortly — check My Account for updates.');
+        router.push(`/order-confirmation/${order.id}`);
+        return;
+      }
 
       // Initiate Flutterwave payment
       handlePayment({
@@ -209,6 +254,55 @@ export default function CheckoutPage() {
                 <textarea value={address} onChange={(e) => setAddress(e.target.value)} required className="input-luxe mt-1 min-h-[80px]" placeholder="Street, city, state" />
               </div>
               <div>
+                <label className="text-sm font-medium">Delivery Zone</label>
+                <Popover open={zoneOpen} onOpenChange={setZoneOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      role="combobox"
+                      aria-expanded={zoneOpen}
+                      className="input-luxe mt-1 flex w-full items-center justify-between text-left font-normal"
+                    >
+                      <span className={selectedZone ? '' : 'text-muted-foreground'}>
+                        {selectedZone ? selectedZone.name : 'Search for your area...'}
+                      </span>
+                      <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search zones..." />
+                      <CommandList>
+                        <CommandEmpty>No matching zone.</CommandEmpty>
+                        <CommandGroup>
+                          {zones?.map((zone: DeliveryZone) => (
+                            <CommandItem
+                              key={zone.id}
+                              value={zone.name}
+                              onSelect={() => {
+                                setSelectedZoneId(zone.id);
+                                setZoneOpen(false);
+                              }}
+                            >
+                              <Check className={cn('mr-2 h-4 w-4', selectedZoneId === zone.id ? 'opacity-100' : 'opacity-0')} />
+                              {zone.name}
+                              <span className="ml-auto text-xs text-muted-foreground">
+                                {zone.fee === null ? 'Quote needed' : zone.fee === 0 ? 'Free' : formatNaira(zone.fee)}
+                              </span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {needsQuote && (
+                  <p className="mt-1.5 text-xs text-amber-600">
+                    This area needs a custom delivery quote. Place your order now — we&apos;ll confirm the delivery fee shortly, then you can complete payment from My Account.
+                  </p>
+                )}
+              </div>
+              <div>
                 <label className="text-sm font-medium">Order Notes (optional)</label>
                 <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="input-luxe mt-1 min-h-[80px]" placeholder="Any special instructions..." />
               </div>
@@ -234,16 +328,26 @@ export default function CheckoutPage() {
                 <span className="font-medium">{formatNaira(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Shipping</span>
-                <span className="font-medium text-green-600">Free / Included</span>
+                <span className="text-muted-foreground">Delivery</span>
+                {!selectedZone ? (
+                  <span className="text-muted-foreground">Select a zone</span>
+                ) : needsQuote ? (
+                  <span className="text-amber-600">To be quoted</span>
+                ) : deliveryFee === 0 ? (
+                  <span className="font-medium text-green-600">Free</span>
+                ) : (
+                  <span className="font-medium">{formatNaira(deliveryFee)}</span>
+                )}
               </div>
             </div>
             <div className="mt-4 flex justify-between border-t border-border pt-4">
               <span className="font-serif text-lg font-medium">Total</span>
-              <span className="font-serif text-lg font-medium">{formatNaira(subtotal)}</span>
+              <span className="font-serif text-lg font-medium">
+                {needsQuote ? formatNaira(subtotal) : formatNaira(total)}
+              </span>
             </div>
-            <button type="submit" disabled={loading || lines.length === 0} className="btn-primary-luxe mt-6 w-full disabled:opacity-50">
-              {loading ? 'Processing...' : `Pay ${formatNaira(subtotal)}`}
+            <button type="submit" disabled={loading || lines.length === 0 || !selectedZone} className="btn-primary-luxe mt-6 w-full disabled:opacity-50">
+              {loading ? 'Processing...' : needsQuote ? 'Place Order (Pay After Quote)' : `Pay ${formatNaira(total)}`}
             </button>
             <p className="mt-3 text-center text-xs text-muted-foreground">
               Secure payment via Flutterwave. Cards, bank transfer, USSD.
