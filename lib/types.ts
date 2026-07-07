@@ -61,6 +61,7 @@ export interface Order {
   id: string;
   user_id: string;
   total: number;
+  subtotal: number;
   status: OrderStatus;
   payment_status: PaymentStatus;
   payment_reference: string | null;
@@ -72,6 +73,10 @@ export interface Order {
   created_at: string;
   updated_at: string;
   order_items?: OrderItem[];
+  delivery_zone_id?: string | null;
+  delivery_fee: number;
+  delivery_status: 'quoted' | 'awaiting_quote';
+  delivery_zones?: DeliveryZone | null;
   // Soft-delete flags: hiding an order from a list never changes revenue.
   // Only excluded_from_revenue actually removes it from revenue totals.
   hidden_from_orders?: boolean;
@@ -115,6 +120,16 @@ export interface ContactMessage {
   created_at: string;
   user_id?: string | null;
   message_replies?: MessageReply[];
+}
+
+export interface DeliveryZone {
+  id: string;
+  name: string;
+  fee: number | null; // null = requires a manual quote
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface MessageReply {
