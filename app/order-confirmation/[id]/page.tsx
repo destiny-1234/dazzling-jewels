@@ -36,7 +36,9 @@ export default function OrderConfirmationPage() {
           <p className="mt-6 section-label">Order Confirmed</p>
           <h1 className="mt-2 font-serif text-4xl font-medium md:text-5xl">Thank you!</h1>
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-            Your order has been placed successfully. We will be in touch shortly with delivery details.
+            {order?.delivery_status === 'awaiting_quote'
+              ? "Your order has been received. Your delivery area needs a custom delivery fee — we'll confirm it shortly, then you can complete payment from My Account."
+              : 'Your order has been placed successfully. We will be in touch shortly with delivery details.'}
           </p>
           <div className="gold-divider mt-6" />
         </div>
@@ -71,9 +73,25 @@ export default function OrderConfirmationPage() {
               ))}
             </div>
 
-            <div className="mt-6 flex justify-between border-t border-border pt-4">
-              <span className="font-serif text-lg font-medium">Total</span>
-              <span className="font-serif text-lg font-medium">{formatNaira(order.total)}</span>
+            <div className="mt-6 space-y-2 border-t border-border pt-4">
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Subtotal</span>
+                <span>{formatNaira(order.subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Delivery</span>
+                <span>
+                  {order.delivery_status === 'awaiting_quote'
+                    ? 'To be confirmed'
+                    : order.delivery_fee === 0
+                    ? 'Free'
+                    : formatNaira(order.delivery_fee)}
+                </span>
+              </div>
+              <div className="flex justify-between pt-2">
+                <span className="font-serif text-lg font-medium">Total</span>
+                <span className="font-serif text-lg font-medium">{formatNaira(order.total)}</span>
+              </div>
             </div>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
