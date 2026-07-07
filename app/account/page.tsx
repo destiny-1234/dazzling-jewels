@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { Package, Heart, User as UserIcon, LogOut, Clock, MessageCircle, Send } from 'lucide-react';
 import { SiteShell } from '@/components/site/site-shell';
+import { PayOrderButton } from '@/components/account/pay-order-button';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase/client';
 import { formatNaira, formatDate } from '@/lib/format';
@@ -247,6 +248,24 @@ export default function AccountPage() {
                           </div>
                         </div>
                       </div>
+                      {order.delivery_status === 'awaiting_quote' && order.payment_status === 'unpaid' && (
+                        <div className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-700">
+                          We&apos;re confirming your delivery fee for this order — check back here shortly to complete payment.
+                        </div>
+                      )}
+                      {order.delivery_status === 'quoted' && order.payment_status === 'unpaid' && order.delivery_fee > 0 && (
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/30 p-3">
+                          <p className="text-sm">
+                            Delivery fee added: <span className="font-medium">{formatNaira(order.delivery_fee)}</span> — total now {formatNaira(order.total)}
+                          </p>
+                          <PayOrderButton order={order} />
+                        </div>
+                      )}
+                      {order.payment_status === 'unpaid' && order.delivery_status === 'quoted' && order.delivery_fee === 0 && (
+                        <div className="mt-4 flex justify-end">
+                          <PayOrderButton order={order} />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
