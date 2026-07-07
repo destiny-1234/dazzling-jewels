@@ -13,13 +13,14 @@ export default function AdminOrdersPage() {
   const queryClient = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showHidden, setShowHidden] = useState(false);
+  const [quoteDrafts, setQuoteDrafts] = useState<Record<string, string>>({});
 
   const { data: orders } = useQuery({
     queryKey: ['admin-orders', showHidden],
     queryFn: async () => {
       let query = supabase
         .from('orders')
-        .select('*, order_items(*)')
+        .select('*, order_items(*), delivery_zones(name)')
         .order('created_at', { ascending: false });
       if (!showHidden) {
         query = query.eq('hidden_from_orders', false);
@@ -44,6 +45,34 @@ export default function AdminOrdersPage() {
         }
       }
       toast.success('Order updated');
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+    }
+  };
+
+  const setDeliveryFee = async (order: Order) => {
+    const raw = quoteDrafts[order.id];
+    const fee = Number(raw);
+    if (raw === undefined || raw === '' || isNaN(fee) || fee < 0) {
+      toast.error('Enter a valid delivery fee (0 or more)');
+      return;
+    }
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        delivery_fee: fee,
+        delivery_status: 'quoted',
+        total: order.subtotal + fee,
+      })
+      .eq('id', order.id);
+    if (error) {
+      toast.error('Failed to save delivery fee');
+    } else {
+      toast.success('Delivery fee set — the customer can now complete payment.');
+      setQuoteDrafts((d) => {
+        const next = { ...d };
+        delete next[order.id];
+        return next;
+      });
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
     }
   };
@@ -134,6 +163,9 @@ export default function AdminOrdersPage() {
                     {order.hidden_from_orders && (
                       <span className="ml-2 rounded-full bg-zinc-700 px-2 py-0.5 text-[10px] uppercase tracking-wide text-zinc-300">Removed</span>
                     )}
+                    {order.delivery_status === 'awaiting_quote' && (
+                      <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-400">Needs Delivery Quote</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm text-zinc-300">{order.shipping_name || '-'}</td>
                   <td className="px-4 py-3 text-sm text-zinc-300">{formatNaira(order.total)}</td>
@@ -193,8 +225,32 @@ export default function AdminOrdersPage() {
                         ))}
                         <div className="mt-3 rounded-md border border-zinc-800 p-3 text-sm text-zinc-400">
                           <p>Shipping: {order.shipping_name}, {order.shipping_address}, {order.shipping_phone}</p>
+                          <p className="mt-1">
+                            Delivery zone: {order.delivery_zones?.name || '—'} &middot; Subtotal: {formatNaira(order.subtotal)} &middot; Delivery fee: {order.delivery_status === 'awaiting_quote' ? 'Not set yet' : formatNaira(order.delivery_fee)}
+                          </p>
                           {order.notes && <p className="mt-1">Notes: {order.notes}</p>}
                         </div>
+                        {order.delivery_status === 'awaiting_quote' && (
+                          <div className="mt-3 flex items-end gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
+                            <div className="flex-1">
+                              <label className="mb-1 block text-xs uppercase tracking-wider text-amber-400">Set delivery fee (₦)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={quoteDrafts[order.id] ?? ''}
+                                onChange={(e) => setQuoteDrafts((d) => ({ ...d, [order.id]: e.target.value }))}
+                                placeholder="e.g. 2500"
+                                className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500"
+                              />
+                            </div>
+                            <button
+                              onClick={() => setDeliveryFee(order)}
+                              className="rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-amber-400"
+                            >
+                              Save Quote
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
