@@ -3,14 +3,14 @@ import { createClient } from '@supabase/supabase-js';
 
 // This is the ONLY place an order is allowed to be marked "paid." It runs
 // server-side, never trusts the browser, and re-checks the payment with
-// Flutterwave itself using the secret key before touching the database.
+// Paystack itself using the secret key before touching the database.
 //
 // Flow:
 // 1. Confirm the caller is signed in (their Supabase access token).
 // 2. Load the order using the service-role key (bypasses RLS — safe here
 //    because every check below is done explicitly in code).
 // 3. Confirm the order actually belongs to that caller.
-// 4. Ask Flutterwave directly: "was transaction_id really a successful
+// 4. Ask Paystack directly: "was this reference really a successful
 //    charge, for at least this order's total, in NGN?" — the browser's
 //    own claim about the payment is never trusted.
 // 5. Only if all of that checks out: mark paid + run stock fulfillment.
@@ -33,9 +33,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const { order_id, transaction_id } = await req.json();
-    if (!order_id || !transaction_id) {
-      return NextResponse.json({ error: 'order_id and transaction_id are required' }, { status: 400 });
+    const { order_id, reference } = await req.json();
+    if (!order_id || !reference) {
+      return NextResponse.json({ error: 'order_id and reference are required' }, { status: 400 });
     }
 
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -64,26 +64,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ verified: true, already: true });
     }
 
-    const secretKey = process.env.FLUTTERWAVE_SECRET_KEY;
+    const secretKey = process.env.PAYSTACK_SECRET_KEY;
     if (!secretKey) {
       return NextResponse.json(
-        { error: 'Server is not configured (missing FLUTTERWAVE_SECRET_KEY).' },
+        { error: 'Server is not configured (missing PAYSTACK_SECRET_KEY).' },
         { status: 500 }
       );
     }
 
-    const flwRes = await fetch(
-      `https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`,
+    const paystackRes = await fetch(
+      `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
       { headers: { Authorization: `Bearer ${secretKey}` } }
     );
-    const flwData = await flwRes.json();
-    const tx = flwData?.data;
+    const paystackData = await paystackRes.json();
+    const tx = paystackData?.data;
+
+    // Paystack amounts are in kobo — order.total is stored in naira, so
+    // convert before comparing.
+    const expectedKobo = Math.round(Number(order.total) * 100);
 
     const isValid =
-      flwData?.status === 'success' &&
-      tx?.status === 'successful' &&
+      paystackData?.status === true &&
+      tx?.status === 'success' &&
       tx?.currency === 'NGN' &&
-      Number(tx?.amount) >= Number(order.total);
+      Number(tx?.amount) >= expectedKobo;
 
     if (!isValid) {
       return NextResponse.json({ error: 'Payment could not be verified', verified: false }, { status: 400 });
@@ -91,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     const { error: updateError } = await adminClient
       .from('orders')
-      .update({ payment_status: 'paid', payment_reference: String(transaction_id) })
+      .update({ payment_status: 'paid', payment_reference: String(reference) })
       .eq('id', order_id);
 
     if (updateError) {
