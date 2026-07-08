@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import PaystackPop from '@paystack/inline-js';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { SiteShell } from '@/components/site/site-shell';
@@ -133,7 +132,10 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Initiate Paystack payment
+      // Initiate Paystack payment — loaded dynamically so it never runs
+      // during Next.js's server-side build/prerender (it needs `window`,
+      // which only exists in the browser).
+      const { default: PaystackPop } = await import('@paystack/inline-js');
       const paystack = new PaystackPop();
       paystack.newTransaction({
         key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
