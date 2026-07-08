@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { useFlutterwave, closePaymentModal } from 'flutterwave-react-v3';
+import PaystackPop from '@paystack/inline-js';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { SiteShell } from '@/components/site/site-shell';
@@ -67,26 +67,6 @@ export default function CheckoutPage() {
       setAddress(profile.address || '');
     }
   }, [user, profile, isWholesalePending, router]);
-
-  const flutterwaveConfig = {
-    public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || 'FLWPUBK_TEST-XXXXXXXXXXXXXXXXXXXXXXXXXX',
-    tx_ref: `fave-${Date.now()}`,
-    amount: total,
-    currency: 'NGN',
-    payment_options: 'card, banktransfer, ussd',
-    customer: {
-      email,
-      phone_number: phone,
-      name,
-    },
-    customizations: {
-      title: 'Fave Dazzling Jewels',
-      description: 'Hand-beaded luxury order',
-      logo: '/images/IMG-20260313-WA0038.jpg',
-    },
-  };
-
-  const handlePayment = useFlutterwave(flutterwaveConfig);
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,58 +133,64 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Initiate Flutterwave payment
-      handlePayment({
-        callback: async (response) => {
-          closePaymentModal();
+      // Initiate Paystack payment
+      const paystack = new PaystackPop();
+      paystack.newTransaction({
+        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        email,
+        amount: Math.round(total * 100), // Paystack expects kobo, not naira
+        currency: 'NGN',
+        reference: `fave-${Date.now()}`,
+        metadata: {
+          order_id: order.id,
+          custom_fields: [{ display_name: 'Order ID', variable_name: 'order_id', value: order.id }],
+        },
+        onSuccess: async (transaction: { reference: string }) => {
+          // Don't trust the browser's word for it — ask our server to
+          // verify this transaction with Paystack directly before
+          // marking the order paid or touching stock.
+          try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData.session?.access_token;
 
-          if (response.status === 'successful') {
-            // Don't trust the browser's word for it — ask our server to
-            // verify this transaction with Flutterwave directly before
-            // marking the order paid or touching stock.
-            try {
-              const { data: sessionData } = await supabase.auth.getSession();
-              const token = sessionData.session?.access_token;
+            const verifyRes = await fetch('/api/verify-payment', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({
+                order_id: order.id,
+                reference: transaction.reference,
+              }),
+            });
+            const verifyResult = await verifyRes.json();
 
-              const verifyRes = await fetch('/api/verify-payment', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify({
-                  order_id: order.id,
-                  transaction_id: response.transaction_id,
-                }),
-              });
-              const verifyResult = await verifyRes.json();
-
-              if (!verifyRes.ok || !verifyResult.verified) {
-                setLoading(false);
-                toast.error(
-                  'We could not confirm your payment with Flutterwave. If you were charged, contact us with your order reference and we will sort it out.'
-                );
-                return;
-              }
-            } catch {
+            if (!verifyRes.ok || !verifyResult.verified) {
               setLoading(false);
-              toast.error('We could not confirm your payment. Please contact us if you were charged.');
+              toast.error(
+                'We could not confirm your payment with Paystack. If you were charged, contact us with your order reference and we will sort it out.'
+              );
               return;
             }
-
-            // Clear cart
-            await clearCart();
-
-            toast.success('Payment successful! Your order has been placed.');
-            router.push(`/order-confirmation/${order.id}`);
-          } else {
-            closePaymentModal();
+          } catch {
             setLoading(false);
-            toast.error('Payment was not successful. Please try again.');
+            toast.error('We could not confirm your payment. Please contact us if you were charged.');
+            return;
           }
+
+          // Clear cart
+          await clearCart();
+
+          toast.success('Payment successful! Your order has been placed.');
+          router.push(`/order-confirmation/${order.id}`);
         },
-        onClose: () => {
+        onCancel: () => {
           setLoading(false);
+        },
+        onError: () => {
+          setLoading(false);
+          toast.error('Payment was not successful. Please try again.');
         },
       });
     } catch (error: any) {
@@ -350,7 +336,7 @@ export default function CheckoutPage() {
               {loading ? 'Processing...' : needsQuote ? 'Place Order (Pay After Quote)' : `Pay ${formatNaira(total)}`}
             </button>
             <p className="mt-3 text-center text-xs text-muted-foreground">
-              Secure payment via Flutterwave. Cards, bank transfer, USSD.
+              Secure payment via Paystack. Cards, bank transfer, USSD.
             </p>
           </div>
         </form>
