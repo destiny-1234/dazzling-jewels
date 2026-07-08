@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import PaystackPop from '@paystack/inline-js';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { formatNaira } from '@/lib/format';
@@ -12,8 +11,11 @@ export function PayOrderButton({ order }: { order: Order }) {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
 
-  const pay = () => {
+  const pay = async () => {
     setLoading(true);
+    // Loaded dynamically so it never runs during Next.js's server-side
+    // build/prerender (it needs `window`, which only exists in the browser).
+    const { default: PaystackPop } = await import('@paystack/inline-js');
     const paystack = new PaystackPop();
     paystack.newTransaction({
       key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || 'pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
