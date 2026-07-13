@@ -6,8 +6,6 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { Truck, ShieldCheck, Heart, MessageCircle, Minus, Plus } from 'lucide-react';
 import { SiteShell } from '@/components/site/site-shell';
-import { SignInGate } from '@/components/site/sign-in-gate';
-import { WholesalePendingGate } from '@/components/site/wholesale-pending-gate';
 import { useProductBySlug } from '@/lib/hooks/use-products';
 import { useAuth } from '@/lib/auth-context';
 import { useCart } from '@/lib/cart-context';
@@ -18,7 +16,7 @@ import { supabase } from '@/lib/supabase/client';
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
-  const { user, isWholesale, canShop, isWholesalePending } = useAuth();
+  const { user, isWholesale } = useAuth();
   const { addToCart } = useCart();
   const { data: settings } = useSiteSettings();
   const { data: product, isLoading } = useProductBySlug(slug as string);
@@ -61,36 +59,22 @@ export default function ProductDetailPage() {
     );
   }
 
-  if (!user) {
-    return (
-      <SiteShell>
-        <div className="container-luxe py-12">
-          <SignInGate
-            title="Sign in to view this piece"
-            description="This piece is available exclusively to members. Sign in or create an account to view full details, pricing, and place an order."
-          />
-        </div>
-      </SiteShell>
-    );
-  }
-
-  if (isWholesalePending) {
-    return (
-      <SiteShell>
-        <div className="container-luxe py-12">
-          <WholesalePendingGate />
-        </div>
-      </SiteShell>
-    );
-  }
-
   const handleAddToCart = async () => {
+    if (!user) {
+      toast.error('Please sign in to add items to your cart');
+      router.push('/auth');
+      return;
+    }
     await addToCart(product, quantity);
     toast.success(`${product.name} added to cart`);
   };
 
   const handleWishlist = async () => {
-    if (!user) return;
+    if (!user) {
+      toast.error('Please sign in to save items to your wishlist');
+      router.push('/auth');
+      return;
+    }
     if (isWishlisted) {
       await supabase.from('wishlist').delete().eq('user_id', user.id).eq('product_id', product.id);
       setIsWishlisted(false);
