@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   MapPin,
+  PackageOpen,
 } from 'lucide-react';
 import { useAdminAuth } from '@/lib/admin-auth-context';
 import { cn } from '@/lib/utils';
@@ -25,6 +26,7 @@ const navItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/products', label: 'Products', icon: Package },
   { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
+  { href: '/admin/returns', label: 'Returns', icon: PackageOpen },
   { href: '/admin/delivery-zones', label: 'Delivery Zones', icon: MapPin },
   { href: '/admin/transactions', label: 'Transactions', icon: CreditCard },
   { href: '/admin/users', label: 'Users', icon: Users },
