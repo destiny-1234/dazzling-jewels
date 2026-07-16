@@ -140,6 +140,21 @@ export interface MessageReply {
   created_at: string;
 }
 
+export type ReturnRequestStatus = 'new' | 'reviewing' | 'resolved';
+
+export interface ReturnRequest {
+  id: string;
+  user_id: string | null;
+  order_number: string;
+  name: string;
+  email: string;
+  description: string;
+  photo_urls: string[];
+  status: ReturnRequestStatus;
+  admin_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface SiteSetting {
   id: string;
