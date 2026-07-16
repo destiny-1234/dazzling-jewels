@@ -18,6 +18,7 @@ const STATUS_STYLES: Record<ReturnRequestStatus, string> = {
 export default function AdminReturnsPage() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<'all' | ReturnRequestStatus>('all');
+  const [sendingEmailFor, setSendingEmailFor] = useState<string | null>(null);
 
   const { data: requests } = useQuery({
     queryKey: ['admin-return-requests'],
@@ -33,13 +34,49 @@ export default function AdminReturnsPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-return-requests'] });
 
-  const updateStatus = async (id: string, status: ReturnRequestStatus) => {
-    const { error } = await supabase.from('return_requests').update({ status }).eq('id', id);
+  const updateStatus = async (req: ReturnRequest, status: ReturnRequestStatus) => {
+    const { error } = await supabase.from('return_requests').update({ status }).eq('id', req.id);
     if (error) {
       toast.error('Failed to update status');
-    } else {
-      toast.success('Status updated');
-      invalidate();
+      return;
+    }
+    invalidate();
+
+    // Notify the customer by email whenever their claim moves to
+    // reviewing or resolved (not on the initial "new" state).
+    setSendingEmailFor(req.id);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        toast.success('Status updated, but you\u2019ll need to log in again to notify the customer by email.');
+        return;
+      }
+
+      const res = await fetch('/api/send-return-status-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: req.email,
+          name: req.name,
+          orderNumber: req.order_number,
+          status,
+        }),
+      });
+      const result = await res.json();
+
+      if (!res.ok) {
+        toast.error(`Status updated, but the email failed to send: ${result.error || 'unknown error'}`);
+      } else {
+        toast.success(`Status updated \u2014 ${req.name} has been emailed.`);
+      }
+    } catch (err) {
+      toast.error('Status updated, but the notification email failed to send.');
+    } finally {
+      setSendingEmailFor(null);
     }
   };
 
@@ -99,10 +136,15 @@ export default function AdminReturnsPage() {
               <div className="flex shrink-0 items-center gap-3">
                 <select
                   value={req.status}
-                  onChange={(e) => updateStatus(req.id, e.target.value as ReturnRequestStatus)}
-                  className="rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-amber-500"
+                  onChange={(e) => updateStatus(req, e.target.value as ReturnRequestStatus)}
+                  disabled={sendingEmailFor === req.id}
+                  className="rounded-md border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-amber-500 disabled:opacity-50"
                 >
-                  <option value="new">New</option>
+                  {req.status === 'new' && (
+                    <option value="new" disabled hidden>
+                      New
+                    </option>
+                  )}
                   <option value="reviewing">Reviewing</option>
                   <option value="resolved">Resolved</option>
                 </select>
