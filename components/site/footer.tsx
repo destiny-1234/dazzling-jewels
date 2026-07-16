@@ -70,8 +70,9 @@ export function Footer() {
             <ul className="mt-4 space-y-3">
               <li><Link href="/shop" className="text-sm text-cream/70 transition-colors hover:text-accent">Shop All</Link></li>
               <li><Link href="/about" className="text-sm text-cream/70 transition-colors hover:text-accent">Our Story</Link></li>
+              <li><Link href="/shipping-returns" className="text-sm text-cream/70 transition-colors hover:text-accent">Shipping &amp; Returns</Link></li>
               <li><Link href="/contact" className="text-sm text-cream/70 transition-colors hover:text-accent">Contact</Link></li>
-              <li><Link href="/account" className="text-sm text-cream/70 transition-colors hover:text-accent">My Account</Link></li>
+               <li><Link href="/account" className="text-sm text-cream/70 transition-colors hover:text-accent">My Account</Link></li>
               <li><Link href="/admin/login" className="text-sm text-cream/40 transition-colors hover:text-accent">Admin</Link></li>
             </ul>
           </div>
