@@ -39,6 +39,28 @@ export default function ShippingReturnsPage() {
 
     setSubmitting(true);
     try {
+      // Confirm this order number actually exists and belongs to this
+      // email before accepting the claim — prevents fabricated numbers.
+      const verifyRes = await fetch('/api/verify-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderNumber: orderNumber.trim(), email: email.trim() }),
+      });
+      const verifyResult = await verifyRes.json();
+
+      if (!verifyRes.ok) {
+        toast.error(verifyResult.error || 'Could not verify your order right now. Please try again.');
+        setSubmitting(false);
+        return;
+      }
+      if (!verifyResult.valid) {
+        toast.error(
+          "We couldn't find an order matching that order number and email. Double check both and try again."
+        );
+        setSubmitting(false);
+        return;
+      }
+
       const photoUrls: string[] = [];
       for (const file of files) {
         const ext = file.name.split('.').pop();
@@ -199,8 +221,11 @@ export default function ShippingReturnsPage() {
                       onChange={(e) => setOrderNumber(e.target.value)}
                       required
                       className="input-luxe mt-1"
-                      placeholder="e.g. FDJ-10234"
+                      placeholder="e.g. A1B2C3D4"
                     />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Found in My Account &rarr; Orders (shown as #A1B2C3D4).
+                    </p>
                   </div>
                   <div>
                     <label className="text-sm font-medium">Full Name *</label>
