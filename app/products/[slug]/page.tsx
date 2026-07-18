@@ -65,8 +65,16 @@ export default function ProductDetailPage() {
       router.push('/auth');
       return;
     }
-    await addToCart(product, quantity);
-    toast.success(`${product.name} added to cart`);
+    const result = await addToCart(product, quantity);
+    if (result.finalQuantity === 0) {
+      toast.error('This item is already at maximum stock in your cart');
+      return;
+    }
+    if (result.limited) {
+      toast.success(`Only ${product.stock} in stock — added the most we can (${result.finalQuantity} in cart)`);
+    } else {
+      toast.success(`${product.name} added to cart`);
+    }
   };
 
   const handleWishlist = async () => {
@@ -178,15 +186,17 @@ export default function ProductDetailPage() {
               <div className="flex items-center rounded-[4px] border border-border">
                 <button
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="px-3 py-2 text-muted-foreground hover:text-foreground"
+                  disabled={product.stock === 0}
+                  className="px-3 py-2 text-muted-foreground hover:text-foreground disabled:opacity-40"
                   aria-label="Decrease quantity"
                 >
                   <Minus className="h-4 w-4" />
                 </button>
                 <span className="px-4 text-sm font-medium">{quantity}</span>
                 <button
-                  onClick={() => setQuantity((q) => q + 1)}
-                  className="px-3 py-2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setQuantity((q) => Math.min(product.stock, q + 1))}
+                  disabled={quantity >= product.stock}
+                  className="px-3 py-2 text-muted-foreground hover:text-foreground disabled:opacity-40"
                   aria-label="Increase quantity"
                 >
                   <Plus className="h-4 w-4" />
