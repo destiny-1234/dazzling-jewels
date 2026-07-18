@@ -10,13 +10,18 @@ export interface CartLine {
   quantity: number;
 }
 
+interface CartActionResult {
+  finalQuantity: number;
+  limited: boolean;
+}
+
 interface CartContextValue {
   lines: CartLine[];
   count: number;
   subtotal: number;
   loading: boolean;
-  addToCart: (product: Product, quantity?: number) => Promise<void>;
-  updateQuantity: (productId: string, quantity: number) => Promise<void>;
+  addToCart: (product: Product, quantity?: number) => Promise<CartActionResult>;
+  updateQuantity: (productId: string, quantity: number) => Promise<CartActionResult>;
   removeFromCart: (productId: string) => Promise<void>;
   clearCart: () => Promise<void>;
 }
@@ -26,8 +31,8 @@ const CartContext = createContext<CartContextValue>({
   count: 0,
   subtotal: 0,
   loading: false,
-  addToCart: async () => {},
-  updateQuantity: async () => {},
+  addToCart: async () => ({ finalQuantity: 0, limited: false }),
+  updateQuantity: async () => ({ finalQuantity: 0, limited: false }),
   removeFromCart: async () => {},
   clearCart: async () => {},
 });
@@ -104,7 +109,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     })();
   }, [user, loadCart, loadGuestCart, saveGuestCart]);
 
-  const addToCart = useCallback(async (product: Product, quantity = 1) => {
+  const addToCart = useCallback(async (product: Product, quantity = 1): Promise<CartActionResult> => {
+    const stock = product.stock ?? 0;
+
     if (user) {
       const { data: existing } = await supabase
         .from('cart_items')
@@ -112,36 +119,60 @@ export function CartProvider({ children }: { children: ReactNode }) {
         .eq('user_id', user.id)
         .eq('product_id', product.id)
         .maybeSingle();
+      const existingQty = existing?.quantity ?? 0;
+      const finalQuantity = Math.max(0, Math.min(stock, existingQty + quantity));
+      const limited = finalQuantity < existingQty + quantity;
+
+      if (finalQuantity === existingQty) {
+        return { finalQuantity, limited };
+      }
+
       if (existing) {
         await supabase
           .from('cart_items')
-          .update({ quantity: existing.quantity + quantity })
+          .update({ quantity: finalQuantity })
           .eq('id', existing.id);
       } else {
         await supabase
           .from('cart_items')
-          .insert({ user_id: user.id, product_id: product.id, quantity });
+          .insert({ user_id: user.id, product_id: product.id, quantity: finalQuantity });
       }
       await loadCart();
+      return { finalQuantity, limited };
     } else {
       const cart = loadGuestCart();
       const idx = cart.findIndex((l) => l.product.id === product.id);
+      const existingQty = idx >= 0 ? cart[idx].quantity : 0;
+      const finalQuantity = Math.max(0, Math.min(stock, existingQty + quantity));
+      const limited = finalQuantity < existingQty + quantity;
+
+      if (finalQuantity === existingQty) {
+        return { finalQuantity, limited };
+      }
+
       if (idx >= 0) {
-        cart[idx].quantity += quantity;
+        cart[idx].quantity = finalQuantity;
       } else {
-        cart.push({ product, quantity });
+        cart.push({ product, quantity: finalQuantity });
       }
       saveGuestCart(cart);
       setLines(cart);
+      return { finalQuantity, limited };
     }
   }, [user, loadCart, loadGuestCart, saveGuestCart]);
 
-  const updateQuantity = useCallback(async (productId: string, quantity: number) => {
-    if (quantity < 1) return;
+  const updateQuantity = useCallback(async (productId: string, quantity: number): Promise<CartActionResult> => {
+    if (quantity < 1) return { finalQuantity: 0, limited: false };
+
+    const existingLine = lines.find((l) => l.product.id === productId);
+    const stock = existingLine?.product.stock ?? quantity;
+    const finalQuantity = Math.min(stock, quantity);
+    const limited = finalQuantity < quantity;
+
     if (user) {
       await supabase
         .from('cart_items')
-        .update({ quantity })
+        .update({ quantity: finalQuantity })
         .eq('user_id', user.id)
         .eq('product_id', productId);
       await loadCart();
@@ -149,12 +180,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const cart = loadGuestCart();
       const idx = cart.findIndex((l) => l.product.id === productId);
       if (idx >= 0) {
-        cart[idx].quantity = quantity;
+        cart[idx].quantity = finalQuantity;
         saveGuestCart(cart);
         setLines(cart);
       }
     }
-  }, [user, loadCart, loadGuestCart, saveGuestCart]);
+    return { finalQuantity, limited };
+  }, [user, lines, loadCart, loadGuestCart, saveGuestCart]);
 
   const removeFromCart = useCallback(async (productId: string) => {
     if (user) {
