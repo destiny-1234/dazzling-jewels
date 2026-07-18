@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
+import { toast } from 'sonner';
 import { SiteShell } from '@/components/site/site-shell';
 import { useCart } from '@/lib/cart-context';
 import { useAuth } from '@/lib/auth-context';
@@ -66,8 +67,14 @@ export default function CartPage() {
                         </button>
                         <span className="px-3 text-sm font-medium">{line.quantity}</span>
                         <button
-                          onClick={() => updateQuantity(line.product.id, line.quantity + 1)}
-                          className="px-3 py-1.5 text-muted-foreground hover:text-foreground"
+                          onClick={async () => {
+                            const result = await updateQuantity(line.product.id, line.quantity + 1);
+                            if (result.limited) {
+                              toast.error(`Only ${line.product.stock} in stock for ${line.product.name}`);
+                            }
+                          }}
+                          disabled={line.quantity >= line.product.stock}
+                          className="px-3 py-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40"
                         >
                           <Plus className="h-3 w-3" />
                         </button>
