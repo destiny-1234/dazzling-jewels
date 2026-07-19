@@ -174,6 +174,19 @@ export interface Coupon {
   updated_at: string;
 }
 
+export interface ProductReview {
+  id: string;
+  product_id: string;
+  order_id: string;
+  user_id: string;
+  reviewer_name: string;
+  rating: number;
+  comment: string | null;
+  visible: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface SiteSetting {
   id: string;
   key: string;
