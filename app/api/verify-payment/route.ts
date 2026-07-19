@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     const { data: order, error: orderError } = await adminClient
       .from('orders')
-      .select('id, user_id, total, subtotal, delivery_fee, payment_status, shipping_name, shipping_email')
+      .select('id, user_id, total, subtotal, delivery_fee, discount_amount, coupon_code, payment_status, shipping_name, shipping_email')
       .eq('id', order_id)
       .maybeSingle();
 
@@ -108,6 +108,32 @@ export async function POST(req: NextRequest) {
       console.error('verify-payment: stock fulfillment failed', order_id, stockError);
     }
 
+    // Record that this coupon was used (never blocks the response).
+    if (order.coupon_code) {
+      try {
+        const { data: coupon } = await adminClient
+          .from('coupons')
+          .select('id, times_used')
+          .ilike('code', order.coupon_code)
+          .maybeSingle();
+        if (coupon) {
+          await adminClient
+            .from('coupons')
+            .update({ times_used: coupon.times_used + 1 })
+            .eq('id', coupon.id);
+        }
+      } catch (couponErr) {
+        console.error('verify-payment: failed to record coupon usage', order_id, couponErr);
+      }
+    }
+
+    // Alert the admin if any product in this order is now low on stock.
+    try {
+      await checkLowStockAndAlert(adminClient, order_id);
+    } catch (lowStockErr) {
+      console.error('verify-payment: low stock check failed', order_id, lowStockErr);
+    }
+
     // Send the order confirmation email. This never blocks or fails the
     // payment verification itself — if the email fails to send, the order
     // is still correctly marked paid, we just log it.
@@ -122,6 +148,73 @@ export async function POST(req: NextRequest) {
     console.error('verify-payment error', err);
     return NextResponse.json({ error: 'Unexpected error verifying payment' }, { status: 500 });
   }
+}
+
+async function checkLowStockAndAlert(adminClient: any, orderId: string) {
+  const { data: orderItems } = await adminClient
+    .from('order_items')
+    .select('product_id')
+    .eq('order_id', orderId);
+
+  const productIds = Array.from(
+    new Set((orderItems || []).map((i: { product_id: string | null }) => i.product_id).filter(Boolean))
+  );
+  if (productIds.length === 0) return;
+
+  const { data: settingsRows } = await adminClient
+    .from('site_settings')
+    .select('key, value')
+    .in('key', ['low_stock_threshold', 'business_email']);
+
+  const settings: Record<string, string> = {};
+  (settingsRows || []).forEach((s: { key: string; value: string | null }) => {
+    settings[s.key] = s.value || '';
+  });
+
+  const threshold = Number(settings.low_stock_threshold) || 5;
+  const alertEmail = settings.business_email || process.env.GMAIL_USER;
+  if (!alertEmail) return;
+
+  const { data: products } = await adminClient
+    .from('products')
+    .select('id, name, stock')
+    .in('id', productIds);
+
+  const lowStockProducts = (products || []).filter((p: { stock: number }) => p.stock <= threshold);
+  if (lowStockProducts.length === 0) return;
+
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailPass = process.env.GMAIL_APP_PASSWORD;
+  if (!gmailUser || !gmailPass) {
+    console.error('verify-payment: GMAIL_USER / GMAIL_APP_PASSWORD not configured, skipping low-stock alert');
+    return;
+  }
+
+  const nodemailer = (await import('nodemailer')).default;
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: gmailUser, pass: gmailPass },
+  });
+
+  const rows = lowStockProducts
+    .map(
+      (p: { name: string; stock: number }) =>
+        `<tr><td style="padding:6px 0;">${escapeHtml(p.name)}</td><td style="padding:6px 0;text-align:right;">${p.stock} left</td></tr>`
+    )
+    .join('');
+
+  await transporter.sendMail({
+    from: `"Fave Dazzling Jewels" <${gmailUser}>`,
+    to: alertEmail,
+    subject: `Low Stock Alert — ${lowStockProducts.length} item${lowStockProducts.length > 1 ? 's' : ''} running low`,
+    html: `
+      <div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:480px;margin:0 auto;">
+        <p><strong>Heads up — some items just dropped to or below your low-stock threshold (${threshold}):</strong></p>
+        <table style="width:100%;border-collapse:collapse;margin-top:12px;">${rows}</table>
+        <p style="margin-top:20px;">You can update stock and thresholds from the admin dashboard.</p>
+      </div>
+    `,
+  });
 }
 
 async function sendOrderConfirmationEmail(
@@ -141,7 +234,7 @@ async function sendOrderConfirmationEmail(
 
   const { data: order } = await adminClient
     .from('orders')
-    .select('id, total, subtotal, delivery_fee, created_at, order_items(product_name, quantity, unit_price)')
+    .select('id, total, subtotal, delivery_fee, discount_amount, coupon_code, created_at, order_items(product_name, quantity, unit_price)')
     .eq('id', orderId)
     .maybeSingle();
 
@@ -185,6 +278,14 @@ async function sendOrderConfirmationEmail(
             <td style="padding:8px 0;border-top:1px solid #ddd;">Subtotal</td>
             <td style="padding:8px 0;border-top:1px solid #ddd;text-align:right;">${formatNaira(order.subtotal)}</td>
           </tr>
+          ${
+            order.discount_amount > 0
+              ? `<tr>
+                  <td style="padding:4px 0;">Discount${order.coupon_code ? ` (${escapeHtml(order.coupon_code)})` : ''}</td>
+                  <td style="padding:4px 0;text-align:right;">-${formatNaira(order.discount_amount)}</td>
+                </tr>`
+              : ''
+          }
           <tr>
             <td style="padding:4px 0;">Delivery</td>
             <td style="padding:4px 0;text-align:right;">${order.delivery_fee ? formatNaira(order.delivery_fee) : 'TBC'}</td>
