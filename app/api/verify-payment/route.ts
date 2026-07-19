@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     const { data: order, error: orderError } = await adminClient
       .from('orders')
-      .select('id, user_id, total, payment_status')
+      .select('id, user_id, total, subtotal, delivery_fee, payment_status, shipping_name, shipping_email')
       .eq('id', order_id)
       .maybeSingle();
 
@@ -108,9 +108,99 @@ export async function POST(req: NextRequest) {
       console.error('verify-payment: stock fulfillment failed', order_id, stockError);
     }
 
+    // Send the order confirmation email. This never blocks or fails the
+    // payment verification itself — if the email fails to send, the order
+    // is still correctly marked paid, we just log it.
+    try {
+      await sendOrderConfirmationEmail(adminClient, order_id, order.shipping_name, order.shipping_email);
+    } catch (emailErr) {
+      console.error('verify-payment: confirmation email failed', order_id, emailErr);
+    }
+
     return NextResponse.json({ verified: true });
   } catch (err) {
     console.error('verify-payment error', err);
     return NextResponse.json({ error: 'Unexpected error verifying payment' }, { status: 500 });
   }
+}
+
+async function sendOrderConfirmationEmail(
+  adminClient: any,
+  orderId: string,
+  shippingName: string | null,
+  shippingEmail: string | null
+) {
+  if (!shippingEmail) return;
+
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailPass = process.env.GMAIL_APP_PASSWORD;
+  if (!gmailUser || !gmailPass) {
+    console.error('verify-payment: GMAIL_USER / GMAIL_APP_PASSWORD not configured, skipping confirmation email');
+    return;
+  }
+
+  const { data: order } = await adminClient
+    .from('orders')
+    .select('id, total, subtotal, delivery_fee, created_at, order_items(product_name, quantity, unit_price)')
+    .eq('id', orderId)
+    .maybeSingle();
+
+  if (!order) return;
+
+  const nodemailer = (await import('nodemailer')).default;
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: gmailUser, pass: gmailPass },
+  });
+
+  const formatNaira = (amount: number) =>
+    '\u20A6' + new Intl.NumberFormat('en-NG', { maximumFractionDigits: 0 }).format(amount);
+
+  const orderRef = String(order.id).slice(0, 8).toUpperCase();
+  const firstName = (shippingName || '').split(' ')[0] || 'there';
+  const items = (order.order_items || []) as { product_name: string; quantity: number; unit_price: number }[];
+
+  const itemRows = items
+    .map(
+      (item) => `
+        <tr>
+          <td style="padding:8px 0;">${escapeHtml(item.product_name)} &times; ${item.quantity}</td>
+          <td style="padding:8px 0;text-align:right;">${formatNaira(item.unit_price * item.quantity)}</td>
+        </tr>`
+    )
+    .join('');
+
+  await transporter.sendMail({
+    from: `"Fave Dazzling Jewels" <${gmailUser}>`,
+    to: shippingEmail,
+    subject: `Order Confirmed — #${orderRef}`,
+    html: `
+      <div style="font-family:sans-serif;font-size:15px;line-height:1.6;color:#1a1a1a;max-width:480px;margin:0 auto;">
+        <p>Hi ${escapeHtml(firstName)},</p>
+        <p><strong>Thank you for your order!</strong> We've received your payment and your order is being prepared.</p>
+        <p style="color:#666;font-size:13px;">Order reference: <strong>#${orderRef}</strong></p>
+        <table style="width:100%;border-collapse:collapse;margin-top:16px;">
+          ${itemRows}
+          <tr>
+            <td style="padding:8px 0;border-top:1px solid #ddd;">Subtotal</td>
+            <td style="padding:8px 0;border-top:1px solid #ddd;text-align:right;">${formatNaira(order.subtotal)}</td>
+          </tr>
+          <tr>
+            <td style="padding:4px 0;">Delivery</td>
+            <td style="padding:4px 0;text-align:right;">${order.delivery_fee ? formatNaira(order.delivery_fee) : 'TBC'}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0;font-weight:bold;border-top:1px solid #ddd;">Total</td>
+            <td style="padding:8px 0;font-weight:bold;border-top:1px solid #ddd;text-align:right;">${formatNaira(order.total)}</td>
+          </tr>
+        </table>
+        <p style="margin-top:24px;">We'll notify you again once your order ships. If you have any questions, just reply to this email.</p>
+        <p style="margin-top:24px;">&mdash; Fave Dazzling Jewels</p>
+      </div>
+    `,
+  });
+}
+
+function escapeHtml(str: string) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
