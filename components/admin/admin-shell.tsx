@@ -1,8 +1,5 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Package,
@@ -30,7 +27,7 @@ const navItems = [
   { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
   { href: '/admin/returns', label: 'Returns', icon: PackageOpen },
   { href: '/admin/delivery-zones', label: 'Delivery Zones', icon: MapPin },
-  { href: '/admin/coupons', label: 'Coupons', icon: Tag },
+ { href: '/admin/coupons', label: 'Coupons', icon: Tag },
   { href: '/admin/reviews', label: 'Reviews', icon: Star },
   { href: '/admin/transactions', label: 'Transactions', icon: CreditCard },
   { href: '/admin/users', label: 'Users', icon: Users },
