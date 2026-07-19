@@ -13,6 +13,7 @@ import { useSiteSettings } from '@/lib/hooks/use-site-settings';
 import { formatNaira } from '@/lib/format';
 import { supabase } from '@/lib/supabase/client';
 import { ProductReviews } from '@/components/product/product-reviews';
+import { NotifyBackInStock } from '@/components/product/notify-back-in-stock';
 
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -180,6 +181,7 @@ export default function ProductDetailPage() {
                   Sold out
                 </span>
               )}
+              {product.stock === 0 && <NotifyBackInStock productId={product.id} />}
             </div>
 
             {/* Quantity + Add to Cart */}
@@ -245,7 +247,6 @@ export default function ProductDetailPage() {
             </div>
           </div>
         </div>
-      </div>
 
         <ProductReviews productId={product.id} />
       </div>
