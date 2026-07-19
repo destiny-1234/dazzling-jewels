@@ -18,6 +18,7 @@ import {
   X,
   MapPin,
   PackageOpen,
+  Tag,
 } from 'lucide-react';
 import { useAdminAuth } from '@/lib/admin-auth-context';
 import { cn } from '@/lib/utils';
