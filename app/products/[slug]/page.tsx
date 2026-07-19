@@ -12,6 +12,7 @@ import { useCart } from '@/lib/cart-context';
 import { useSiteSettings } from '@/lib/hooks/use-site-settings';
 import { formatNaira } from '@/lib/format';
 import { supabase } from '@/lib/supabase/client';
+import { ProductReviews } from '@/components/product/product-reviews';
 
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
