@@ -13,7 +13,7 @@ import { useSiteSettings } from '@/lib/hooks/use-site-settings';
 import { formatNaira } from '@/lib/format';
 import { supabase } from '@/lib/supabase/client';
 import { ProductReviews } from '@/components/product/product-reviews';
-import { NotifyBackInStock } from '@/components/product/notify-back-in-stock';
+
 
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
