@@ -31,6 +31,7 @@ const navItems = [
   { href: '/admin/returns', label: 'Returns', icon: PackageOpen },
   { href: '/admin/delivery-zones', label: 'Delivery Zones', icon: MapPin },
   { href: '/admin/coupons', label: 'Coupons', icon: Tag },
+  { href: '/admin/reviews', label: 'Reviews', icon: Star },
   { href: '/admin/transactions', label: 'Transactions', icon: CreditCard },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/wholesale', label: 'Wholesale Queue', icon: Store },
