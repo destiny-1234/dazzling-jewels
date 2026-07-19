@@ -77,6 +77,8 @@ export interface Order {
   delivery_fee: number;
   delivery_status: 'quoted' | 'awaiting_quote';
   delivery_zones?: DeliveryZone | null;
+  coupon_code: string | null;
+  discount_amount: number;
   // Soft-delete flags: hiding an order from a list never changes revenue.
   // Only excluded_from_revenue actually removes it from revenue totals.
   hidden_from_orders?: boolean;
@@ -152,6 +154,22 @@ export interface ReturnRequest {
   photo_urls: string[];
   status: ReturnRequestStatus;
   admin_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CouponDiscountType = 'percentage' | 'fixed';
+
+export interface Coupon {
+  id: string;
+  code: string;
+  discount_type: CouponDiscountType;
+  discount_value: number;
+  active: boolean;
+  min_order_amount: number;
+  usage_limit: number | null;
+  times_used: number;
+  expires_at: string | null;
   created_at: string;
   updated_at: string;
 }
