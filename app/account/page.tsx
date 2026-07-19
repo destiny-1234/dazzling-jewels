@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Package, Heart, User as UserIcon, LogOut, Clock, MessageCircle, Send } from 'lucide-react';
 import { SiteShell } from '@/components/site/site-shell';
 import { PayOrderButton } from '@/components/account/pay-order-button';
+import { OrderTracker } from '@/components/account/order-tracker';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase/client';
 import { formatNaira, formatDate } from '@/lib/format';
