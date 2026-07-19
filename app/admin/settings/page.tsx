@@ -15,6 +15,7 @@ const settingKeys = [
   { key: 'facebook_url', label: 'Facebook URL', placeholder: 'https://facebook.com/...' },
   { key: 'tiktok_url', label: 'TikTok URL', placeholder: 'https://tiktok.com/@...' },
   { key: 'whatsapp_message', label: 'WhatsApp Default Message', placeholder: 'Hello! I am interested...' },
+{ key: 'low_stock_threshold', label: 'Low Stock Alert Threshold', placeholder: '5' },
 ];
 
 export default function AdminSettingsPage() {
