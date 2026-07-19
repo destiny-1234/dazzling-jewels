@@ -61,7 +61,7 @@ export default function AdminOrdersPage() {
       .update({
         delivery_fee: fee,
         delivery_status: 'quoted',
-        total: order.subtotal + fee,
+        total: order.subtotal - (order.discount_amount || 0) + fee,
       })
       .eq('id', order.id);
     if (error) {
