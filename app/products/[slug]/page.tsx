@@ -246,6 +246,9 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </div>
+
+        <ProductReviews productId={product.id} />
+      </div>
     </SiteShell>
   );
 }
