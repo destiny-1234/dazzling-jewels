@@ -29,6 +29,9 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [zoneOpen, setZoneOpen] = useState(false);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountAmount: number } | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
 
   const { data: zones } = useQuery<DeliveryZone[]>({
     queryKey: ['delivery-zones'],
@@ -47,7 +50,38 @@ export default function CheckoutPage() {
   const selectedZone = zones?.find((z: DeliveryZone) => z.id === selectedZoneId) || null;
   const needsQuote = !!selectedZone && selectedZone.fee === null;
   const deliveryFee = selectedZone && !needsQuote ? Number(selectedZone.fee) : 0;
-  const total = subtotal + deliveryFee;
+  const discountAmount = appliedCoupon?.discountAmount || 0;
+  const discountedSubtotal = Math.max(0, subtotal - discountAmount);
+  const total = discountedSubtotal + deliveryFee;
+
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setCouponLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('validate_coupon', {
+        p_code: couponInput.trim(),
+        p_subtotal: subtotal,
+      });
+      if (error) throw error;
+      const result = data?.[0];
+      if (!result?.valid) {
+        toast.error(result?.message || 'Invalid coupon code');
+        setAppliedCoupon(null);
+        return;
+      }
+      setAppliedCoupon({ code: couponInput.trim().toUpperCase(), discountAmount: Number(result.discount_amount) });
+      toast.success(result.message || 'Coupon applied');
+    } catch (err) {
+      toast.error('Could not validate that coupon right now. Please try again.');
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput('');
+  };
 
   useEffect(() => {
     if (!user) {
@@ -92,7 +126,7 @@ export default function CheckoutPage() {
         .insert({
           user_id: user.id,
           subtotal,
-          total: needsQuote ? subtotal : total,
+          total: needsQuote ? discountedSubtotal : total,
           status: 'pending',
           payment_status: 'unpaid',
           shipping_name: name,
@@ -103,6 +137,8 @@ export default function CheckoutPage() {
           delivery_zone_id: selectedZone.id,
           delivery_fee: needsQuote ? 0 : deliveryFee,
           delivery_status: needsQuote ? 'awaiting_quote' : 'quoted',
+          coupon_code: appliedCoupon?.code || null,
+          discount_amount: discountAmount,
         })
         .select()
         .single();
@@ -310,11 +346,46 @@ export default function CheckoutPage() {
                 </div>
               ))}
             </div>
+            <div className="mt-4 space-y-2 border-b border-border pb-4">
+              <label className="text-sm font-medium">Coupon Code</label>
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between rounded-[4px] border border-accent/40 bg-accent/5 px-3 py-2">
+                  <span className="text-sm font-medium text-accent">{appliedCoupon.code} applied</span>
+                  <button type="button" onClick={handleRemoveCoupon} className="text-xs text-muted-foreground underline">
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value)}
+                    placeholder="Enter code"
+                    className="input-luxe flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyCoupon}
+                    disabled={couponLoading || !couponInput.trim()}
+                    className="btn-secondary-luxe shrink-0 px-4 disabled:opacity-50"
+                  >
+                    {couponLoading ? '...' : 'Apply'}
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="mt-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-medium">{formatNaira(subtotal)}</span>
               </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Discount</span>
+                  <span className="font-medium text-green-600">-{formatNaira(discountAmount)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Delivery</span>
                 {!selectedZone ? (
@@ -331,7 +402,7 @@ export default function CheckoutPage() {
             <div className="mt-4 flex justify-between border-t border-border pt-4">
               <span className="font-serif text-lg font-medium">Total</span>
               <span className="font-serif text-lg font-medium">
-                {needsQuote ? formatNaira(subtotal) : formatNaira(total)}
+                {needsQuote ? formatNaira(discountedSubtotal) : formatNaira(total)}
               </span>
             </div>
             <button type="submit" disabled={loading || lines.length === 0 || !selectedZone} className="btn-primary-luxe mt-6 w-full disabled:opacity-50">
