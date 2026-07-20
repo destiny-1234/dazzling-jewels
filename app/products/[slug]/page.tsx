@@ -175,7 +175,7 @@ export default function ProductDetailPage() {
                   <span className="h-2 w-2 rounded-full bg-green-500" />
                   In stock ({product.stock} available)
                 </span>
-             ) : (
+              ) : (
                 <span className="inline-flex items-center gap-2 text-sm text-destructive">
                   <span className="h-2 w-2 rounded-full bg-destructive" />
                   Sold out
