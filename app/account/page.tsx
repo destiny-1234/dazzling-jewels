@@ -229,7 +229,7 @@ export default function AccountPage() {
             <div>
               {orders && orders.length > 0 ? (
                 <div className="space-y-4">
-{orders.map((order: Order) => (
+                  {orders.map((order: Order) => (
                     <div key={order.id} className="card-luxe p-6">
                       <div className="flex flex-wrap items-center justify-between gap-4">
                         <div>
