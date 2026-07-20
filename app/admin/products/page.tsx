@@ -255,17 +255,42 @@ function ProductForm({
       featured,
     };
 
-    const { error } = product
+   const { error } = product
       ? await supabase.from('products').update(payload).eq('id', product.id)
       : await supabase.from('products').insert(payload);
 
     setSaving(false);
     if (error) {
       toast.error(error.message);
-    } else {
-      toast.success(product ? 'Product updated' : 'Product created');
-      onSaved();
+      return;
     }
+
+    toast.success(product ? 'Product updated' : 'Product created');
+
+    // If this product now has stock, let anyone waiting on a "back in
+    // stock" request know. Cheap no-op if nobody's waiting; never blocks
+    // the save itself if it fails.
+    if (product && payload.stock > 0) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (token) {
+          const res = await fetch('/api/notify-back-in-stock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ product_id: product.id }),
+          });
+          const result = await res.json();
+          if (res.ok && result.notified > 0) {
+            toast.success(`Notified ${result.notified} customer${result.notified === 1 ? '' : 's'} waiting for this item`);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check back-in-stock notifications', err);
+      }
+    }
+
+    onSaved();
   };
 
   return (
