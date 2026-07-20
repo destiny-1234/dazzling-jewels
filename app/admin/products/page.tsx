@@ -255,7 +255,7 @@ function ProductForm({
       featured,
     };
 
-   const { error } = product
+    const { error } = product
       ? await supabase.from('products').update(payload).eq('id', product.id)
       : await supabase.from('products').insert(payload);
 

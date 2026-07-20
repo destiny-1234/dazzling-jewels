@@ -216,7 +216,7 @@ export default function ProductDetailPage() {
 
             {/* WhatsApp + Wishlist */}
             <div className="mt-4 flex gap-3">
-              
+              <a
                 href={whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
