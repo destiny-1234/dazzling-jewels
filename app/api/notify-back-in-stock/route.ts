@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { sendPushToUser } from '@/lib/push-server';
 
 // Called from the admin Products page right after a product is saved.
 // If the product now has stock > 0, emails everyone who asked to be
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
 
     const { data: requests } = await adminClient
       .from('back_in_stock_requests')
-      .select('id, email')
+      .select('id, email, user_id')
       .eq('product_id', product_id)
       .eq('notified', false);
 
@@ -98,6 +99,14 @@ export async function POST(req: NextRequest) {
         });
         await adminClient.from('back_in_stock_requests').update({ notified: true }).eq('id', request.id);
         notified += 1;
+
+        if (request.user_id) {
+          await sendPushToUser(adminClient, request.user_id, {
+            title: `${product.name} is back!`,
+            body: 'The item you asked about is back in stock.',
+            url: `/products/${product.slug}`,
+          });
+        }
       } catch (err) {
         console.error('notify-back-in-stock: failed to email', request.email, err);
       }

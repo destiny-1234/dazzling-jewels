@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Package, Heart, User as UserIcon, LogOut, Clock, MessageCircle, Send } from 'lucide-react';
+import { Package, Heart, User as UserIcon, LogOut, Clock, MessageCircle, Send, Download } from 'lucide-react';
 import { SiteShell } from '@/components/site/site-shell';
 import { PayOrderButton } from '@/components/account/pay-order-button';
 import { OrderTracker } from '@/components/account/order-tracker';
+import { PushOptIn } from '@/components/push-opt-in';
+import { downloadOrderReceipt } from '@/lib/generate-receipt-pdf';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase/client';
 import { formatNaira, formatDate } from '@/lib/format';
@@ -30,7 +32,7 @@ const statusColors: Record<string, string> = {
 
 export default function AccountPage() {
   const router = useRouter();
-  const { user, profile, signOut, loading, refreshProfile } = useAuth();
+  const { user, profile, signOut, loading, refreshProfile, isWholesale } = useAuth();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<'orders' | 'wishlist' | 'messages' | 'profile'>('orders');
   const [openThreadId, setOpenThreadId] = useState<string | null>(null);
@@ -199,6 +201,23 @@ export default function AccountPage() {
           </div>
         )}
 
+        <div className="mt-6">
+          <PushOptIn />
+        </div>
+
+        {isWholesale && (
+          <Link
+            href="/wholesale/bulk-order"
+            className="card-luxe mt-4 flex items-center gap-3 border-l-4 border-primary p-4 transition-colors hover:bg-muted/30"
+          >
+            <Package className="h-5 w-5 text-primary" />
+            <div>
+              <p className="text-sm font-medium">Bulk Order Tool</p>
+              <p className="text-xs text-muted-foreground">Set quantities across multiple products at once.</p>
+            </div>
+          </Link>
+        )}
+
         {/* Tabs */}
         <div className="mt-8 flex border-b border-border">
           {[
@@ -254,6 +273,13 @@ export default function AccountPage() {
                       {order.payment_status === 'paid' && (
                         <div className="mt-6 border-t border-border pt-5">
                           <OrderTracker status={order.status} />
+                          <button
+                            onClick={() => downloadOrderReceipt(order)}
+                            className="mt-4 flex items-center gap-2 text-sm text-primary hover:text-accent"
+                          >
+                            <Download className="h-4 w-4" />
+                            Download Receipt (PDF)
+                          </button>
                         </div>
                       )}
                       {order.delivery_status === 'awaiting_quote' && order.payment_status === 'unpaid' && (

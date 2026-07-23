@@ -9,10 +9,16 @@ import { formatNaira, formatDate } from '@/lib/format';
 import {
   AreaChart,
   Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
 } from 'recharts';
 
@@ -69,6 +75,73 @@ export default function AdminDashboardPage() {
     },
   });
 
+  const { data: analytics } = useQuery({
+    queryKey: ['admin-analytics'],
+    queryFn: async () => {
+      const [itemsRes, ordersRes] = await Promise.all([
+        supabase
+          .from('order_items')
+          .select('product_name, quantity, unit_price, orders!inner(payment_status)')
+          .eq('orders.payment_status', 'paid'),
+        supabase
+          .from('orders')
+          .select('status, total, user_id')
+          .eq('payment_status', 'paid')
+          .eq('excluded_from_revenue', false),
+      ]);
+
+      const userIds = Array.from(new Set((ordersRes.data || []).map((o: any) => o.user_id)));
+      const { data: profileRows } = userIds.length
+        ? await supabase.from('profiles').select('id, account_type').in('id', userIds)
+        : { data: [] as any[] };
+      const accountTypeMap = new Map((profileRows || []).map((p: any) => [p.id, p.account_type]));
+
+      // Top products by revenue
+      const productTotals = new Map<string, number>();
+      for (const item of (itemsRes.data || []) as any[]) {
+        const key = item.product_name;
+        productTotals.set(key, (productTotals.get(key) || 0) + item.unit_price * item.quantity);
+      }
+      const topProducts = Array.from(productTotals.entries())
+        .map(([name, revenue]) => ({ name: name.length > 18 ? name.slice(0, 18) + '…' : name, revenue }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 6);
+
+      // Order status breakdown
+      const statusCounts = new Map<string, number>();
+      for (const order of (ordersRes.data || []) as any[]) {
+        statusCounts.set(order.status, (statusCounts.get(order.status) || 0) + 1);
+      }
+      const statusBreakdown = Array.from(statusCounts.entries()).map(([name, value]) => ({ name, value }));
+
+      // Retail vs wholesale revenue split
+      let retailRevenue = 0;
+      let wholesaleRevenue = 0;
+      for (const order of (ordersRes.data || []) as any[]) {
+        if (accountTypeMap.get(order.user_id) === 'wholesale') {
+          wholesaleRevenue += Number(order.total);
+        } else {
+          retailRevenue += Number(order.total);
+        }
+      }
+      const revenueSplit = [
+        { name: 'Retail', value: retailRevenue },
+        { name: 'Wholesale', value: wholesaleRevenue },
+      ].filter((d) => d.value > 0);
+
+      return { topProducts, statusBreakdown, revenueSplit };
+    },
+  });
+
+  const STATUS_COLORS: Record<string, string> = {
+    pending: '#eab308',
+    processing: '#3b82f6',
+    shipped: '#a855f7',
+    delivered: '#22c55e',
+    cancelled: '#ef4444',
+  };
+  const SPLIT_COLORS = ['#f59e0b', '#8b5cf6'];
+
   const statCards = [
     { label: 'Total Revenue', value: stats ? formatNaira(stats.totalRevenue) : '...', icon: Wallet, color: 'text-amber-400', href: '/admin/transactions' },
     { label: "This Month's Revenue", value: stats ? formatNaira(stats.monthRevenue) : '...', icon: TrendingUp, color: 'text-green-400', href: '/admin/transactions' },
@@ -121,6 +194,70 @@ export default function AdminDashboardPage() {
               <Area type="monotone" dataKey="revenue" stroke="#f59e0b" strokeWidth={2} fill="url(#revenueGradient)" />
             </AreaChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Top products + breakdowns */}
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+          <h2 className="font-serif text-xl font-medium text-zinc-100">Top Products by Revenue</h2>
+          <div className="mt-6 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={analytics?.topProducts || []} layout="vertical" margin={{ left: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" horizontal={false} />
+                <XAxis type="number" stroke="#71717a" fontSize={11} tickFormatter={(v) => `\u20A6${(v / 1000).toFixed(0)}k`} />
+                <YAxis type="category" dataKey="name" stroke="#71717a" fontSize={11} width={110} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }}
+                  labelStyle={{ color: '#e4e4e7' }}
+                  formatter={(value: number) => [formatNaira(value), 'Revenue']}
+                />
+                <Bar dataKey="revenue" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+            {(!analytics?.topProducts || analytics.topProducts.length === 0) && (
+              <p className="mt-4 text-center text-sm text-zinc-500">No paid orders yet.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-6">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+            <h2 className="font-serif text-lg font-medium text-zinc-100">Order Status</h2>
+            <div className="mt-4 h-40">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={analytics?.statusBreakdown || []} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60}>
+                    {(analytics?.statusBreakdown || []).map((entry: { name: string; value: number }, i: number) => (
+                      <Cell key={i} fill={STATUS_COLORS[entry.name] || '#71717a'} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }} />
+                  <Legend wrapperStyle={{ fontSize: 11, color: '#a1a1aa' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
+            <h2 className="font-serif text-lg font-medium text-zinc-100">Retail vs Wholesale Revenue</h2>
+            <div className="mt-4 h-40">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={analytics?.revenueSplit || []} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60}>
+                    {(analytics?.revenueSplit || []).map((entry: { name: string; value: number }, i: number) => (
+                      <Cell key={i} fill={SPLIT_COLORS[i % SPLIT_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }}
+                    formatter={(value: number) => formatNaira(value)}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11, color: '#a1a1aa' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
       </div>
 

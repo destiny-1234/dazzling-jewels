@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronDown, ChevronUp, Trash2, RotateCcw, Eye, EyeOff, MinusCircle } from 'lucide-react';
+import { ChevronDown, ChevronUp, Trash2, RotateCcw, Eye, EyeOff, MinusCircle, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabase/admin-client';
 import { AdminShell } from '@/components/admin/admin-shell';
 import { formatNaira, formatDate } from '@/lib/format';
+import { downloadCsv } from '@/lib/csv-export';
 import type { Order, OrderStatus, PaymentStatus } from '@/lib/types';
 
 export default function AdminOrdersPage() {
@@ -42,6 +43,22 @@ export default function AdminOrdersPage() {
         const { error: stockError } = await supabase.rpc('fulfill_order_stock', { p_order_id: id });
         if (stockError) {
           console.error('Failed to update stock for order', id, stockError);
+        }
+      }
+      // Push-notify the customer when their order ships or is delivered.
+      if (field === 'status' && (value === 'shipped' || value === 'delivered')) {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData.session?.access_token;
+          if (token) {
+            fetch('/api/notify-order-status', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ order_id: id, status: value }),
+            }).catch((err) => console.error('Failed to send push notification', err));
+          }
+        } catch (err) {
+          console.error('Failed to send push notification', err);
         }
       }
       toast.success('Order updated');
@@ -126,12 +143,39 @@ export default function AdminOrdersPage() {
   const statusOptions: OrderStatus[] = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
   const paymentOptions: PaymentStatus[] = ['unpaid', 'paid', 'refunded'];
 
+  const exportOrdersCsv = () => {
+    if (!orders || orders.length === 0) return;
+    const rows = orders.map((order: Order) => ({
+      'Order Ref': order.id.slice(0, 8).toUpperCase(),
+      'Date': formatDate(order.created_at),
+      'Customer Name': order.shipping_name || '',
+      'Customer Email': order.shipping_email || '',
+      'Customer Phone': order.shipping_phone || '',
+      'Status': order.status,
+      'Payment Status': order.payment_status,
+      'Subtotal': order.subtotal,
+      'Discount': order.discount_amount || 0,
+      'Delivery Fee': order.delivery_fee || 0,
+      'Total': order.total,
+      'Coupon Code': order.coupon_code || '',
+      'Items': (order.order_items || []).map((i: { product_name: string; quantity: number }) => `${i.product_name} x${i.quantity}`).join('; '),
+    }));
+    downloadCsv(`orders-export-${new Date().toISOString().split('T')[0]}.csv`, rows);
+  };
+
   return (
     <AdminShell>
       <h1 className="font-serif text-3xl font-medium text-zinc-100">Orders</h1>
       <p className="mt-1 text-sm text-zinc-500">Manage customer orders</p>
 
-      <div className="mt-6 flex justify-end">
+      <div className="mt-6 flex flex-wrap justify-end gap-3">
+        <button
+          onClick={exportOrdersCsv}
+          className="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Export CSV
+        </button>
         <button
           onClick={() => setShowHidden((v) => !v)}
           className="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700"
