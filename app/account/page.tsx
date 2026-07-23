@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Package, Heart, User as UserIcon, LogOut, Clock, MessageCircle, Send, Download } from 'lucide-react';
 import { SiteShell } from '@/components/site/site-shell';
 import { PayOrderButton } from '@/components/account/pay-order-button';
+import { CancelOrderButton } from '@/components/account/cancel-order-button';
 import { OrderTracker } from '@/components/account/order-tracker';
 import { PushOptIn } from '@/components/push-opt-in';
 import { downloadOrderReceipt } from '@/lib/generate-receipt-pdf';
@@ -283,8 +284,9 @@ export default function AccountPage() {
                         </div>
                       )}
                       {order.delivery_status === 'awaiting_quote' && order.payment_status === 'unpaid' && (
-                        <div className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-700">
-                          We&apos;re confirming your delivery fee for this order — check back here shortly to complete payment.
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-700">
+                          <p>We&apos;re confirming your delivery fee for this order — check back here shortly to complete payment.</p>
+                          <CancelOrderButton order={order} />
                         </div>
                       )}
                       {order.delivery_status === 'quoted' && order.payment_status === 'unpaid' && order.delivery_fee > 0 && (
@@ -292,11 +294,15 @@ export default function AccountPage() {
                           <p className="text-sm">
                             Delivery fee added: <span className="font-medium">{formatNaira(order.delivery_fee)}</span> — total now {formatNaira(order.total)}
                           </p>
-                          <PayOrderButton order={order} />
+                          <div className="flex gap-2">
+                            <CancelOrderButton order={order} />
+                            <PayOrderButton order={order} />
+                          </div>
                         </div>
                       )}
                       {order.payment_status === 'unpaid' && order.delivery_status === 'quoted' && order.delivery_fee === 0 && (
-                        <div className="mt-4 flex justify-end">
+                        <div className="mt-4 flex justify-end gap-2">
+                          <CancelOrderButton order={order} />
                           <PayOrderButton order={order} />
                         </div>
                       )}
